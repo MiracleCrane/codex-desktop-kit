@@ -134,13 +134,17 @@ namespace CodexDesktopKit
                 return true;
             } catch { Log("bridge-restore-failed"); return false; }
         }
-        public void ActivateCodex()
+        private void ConfigureProcessEnvironment()
         {
             foreach (string key in new[] { "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY" })
                 Environment.SetEnvironmentVariable(key, settings.ProxyUri, EnvironmentVariableTarget.Process);
             Environment.SetEnvironmentVariable("NO_PROXY", settings.NoProxy, EnvironmentVariableTarget.Process);
             Environment.SetEnvironmentVariable("NODE_USE_ENV_PROXY", "1", EnvironmentVariableTarget.Process);
             Environment.SetEnvironmentVariable("CODEX_HOME", settings.CodexHome, EnvironmentVariableTarget.Process);
+        }
+        public void ActivateCodex()
+        {
+            ConfigureProcessEnvironment();
             string args = "--proxy-server=\"" + settings.ProxyUri + "\" --proxy-bypass-list=\"" + settings.ProxyBypassList + "\"";
             var manager = (IApplicationActivationManager)new ApplicationActivationManager();
             uint pid;
@@ -149,7 +153,13 @@ namespace CodexDesktopKit
         }
         public void StartQuotaOrb()
         {
-            using (Process.Start(new ProcessStartInfo(settings.QuotaOrbPath, "--ensure-running") {
+            StartQuotaOrbWith("--ensure-running");
+        }
+        public void ToggleQuotaOrb() { StartQuotaOrbWith("--toggle"); }
+        private void StartQuotaOrbWith(string argument)
+        {
+            ConfigureProcessEnvironment();
+            using (Process.Start(new ProcessStartInfo(settings.QuotaOrbPath, argument) {
                 UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(settings.QuotaOrbPath), WindowStyle = ProcessWindowStyle.Hidden
             })) { }
             Log("quota-orb-start-requested");
@@ -162,12 +172,18 @@ namespace CodexDesktopKit
         private static int Main(string[] args)
         {
             try {
-                if (args.Length != 2 || args[0] != "--config") throw new InvalidOperationException("请使用安装器创建的 Codex 快捷方式。");
+                if ((args.Length != 2 && args.Length != 3) || args[0] != "--config"
+                    || (args.Length == 3 && args[2] != "--toggle-orb")) throw new InvalidOperationException("请使用安装器创建的快捷方式。");
                 var settings = new JavaScriptSerializer().Deserialize<Settings>(File.ReadAllText(Path.GetFullPath(args[1])));
                 if (String.IsNullOrEmpty(settings.Aumid) || String.IsNullOrEmpty(settings.CodexHome)
                     || (settings.ProxyBypassList ?? "").IndexOfAny(new[] { '"', '\r', '\n' }) >= 0)
                     throw new InvalidOperationException("启动配置不完整，请通过安装器修复。");
                 var operations = new Operations(settings);
+                if (args.Length == 3) {
+                    if (String.IsNullOrEmpty(settings.QuotaOrbPath)) throw new InvalidOperationException("未安装悬浮球组件。");
+                    operations.ToggleQuotaOrb();
+                    return 0;
+                }
                 int result = LaunchPlan.Run(operations, settings.Bridge != null, !String.IsNullOrEmpty(settings.QuotaOrbPath));
                 if (result == 2) MessageBox.Show("本地代理端口未就绪。请启动代理客户端的 HTTP/mixed 端口后重试；无需开启 TUN 或系统代理。", "Codex Desktop Kit");
                 if (result == 3) MessageBox.Show("桥接未就绪，连接配置需要检查。请运行 Test-Kit.ps1；现有聊天与用户配置已保留。", "Codex Desktop Kit");

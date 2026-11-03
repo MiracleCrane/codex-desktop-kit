@@ -21,6 +21,7 @@ try{
     & (Join-Path $root 'install.ps1') @args
     $first=Get-Content -LiteralPath $receiptPath -Raw|ConvertFrom-Json
     if((Get-KitShortcut $linkPath).Target -ne $first.Launcher){throw 'Kit is not the direct shortcut owner.'}
+    if($WithComponents){$manual=Get-KitShortcut (Join-Path $WorkDirectory 'Quota Orb.lnk');if(-not $manual -or $manual.Arguments -notmatch '--toggle-orb$'){throw 'Manual quota toggle is missing.'}}
     if((Get-Content -LiteralPath $envFile -Raw) -notmatch 'corp.internal'){throw 'Intranet bypass lost.'}
     & (Join-Path $root 'update.ps1') -InstallationPath $receiptPath -PackageDirectory $root
     $second=Get-Content -LiteralPath $receiptPath -Raw|ConvertFrom-Json
@@ -43,6 +44,7 @@ try{
     [IO.File]::AppendAllText($config,"model_verbosity = `"low`"`n")
     & (Join-Path $root 'restore.ps1') -InstallationPath $receiptPath -AllVersions -Confirm:$false
     if((Get-KitHash $linkPath) -ne $originalHash){throw 'Original shortcut was not restored byte-for-byte.'}
+    if($WithComponents -and (Test-Path -LiteralPath (Join-Path $WorkDirectory 'Quota Orb.lnk'))){throw 'Created manual quota shortcut was not removed.'}
     $text=Get-Content -LiteralPath $envFile -Raw
     if($text -match 'codex-desktop-kit' -or $text -notmatch 'LATER=preserved' -or $text -notmatch 'no_proxy=corp.internal'){throw 'Environment restore lost later edits or bypasses.'}
     $text=Get-Content -LiteralPath $config -Raw

@@ -9,6 +9,7 @@ param(
     [switch]$WithQuotaOrb,
     [string[]]$ShortcutPath=@(),
     [switch]$NoShortcuts,
+    [switch]$NoQuotaShortcut,
     [string]$NodePath,
     [string]$PythonPath,
     [switch]$Launch
@@ -58,9 +59,11 @@ try{
                 throw 'Changing component selection requires uninstall/restore of the existing integration first. Updates preserve the selected components.'
             }
             if($NoShortcuts -and @($previous.Shortcuts).Count -gt 0){throw 'Restore the existing shortcuts before switching to NoShortcuts.'}
-            if($ShortcutPath.Count -gt 0 -and @($previous.Shortcuts).Count -gt 0){
+            if($previous.PSObject.Properties['NoQuotaShortcut'] -and [bool]$previous.NoQuotaShortcut -ne [bool]$NoQuotaShortcut){throw 'Restore the existing integration before changing manual shortcut selection.'}
+            $previousCodexEntries=@($previous.Shortcuts|Where-Object {-not $_.PSObject.Properties['Kind'] -or $_.Kind -eq 'codex'})
+            if($ShortcutPath.Count -gt 0 -and $previousCodexEntries.Count -gt 0){
                 $requested=@($ShortcutPath|ForEach-Object {Get-KitPhysicalPath $_}|Sort-Object)
-                $existing=@($previous.Shortcuts|ForEach-Object Path|Sort-Object)
+                $existing=@($previousCodexEntries|ForEach-Object Path|Sort-Object)
                 if(($requested -join "`n") -ne ($existing -join "`n")){throw 'Restore the existing integration before selecting different shortcut paths.'}
             }
             foreach($entry in $previous.Shortcuts){if(-not(Test-Path -LiteralPath $entry.Path) -or (Get-KitHash $entry.Path) -ne $entry.InstalledHash){throw 'An existing kit shortcut changed; preserve it for review.'}}
@@ -107,11 +110,17 @@ try{
     if($WithBridge){$launchSettings.Bridge=@{ReceiptPath=$bridgeReceipt;RestoreScript=(Join-Path $bridgePackage 'scripts/Restore-Bridge.ps1');PowerShellPath=$powerShellPath}}
     Write-KitJson $launchConfig $launchSettings
     if(-not $NoShortcuts -and $ShortcutPath.Count -eq 0){
-        if($previous){$ShortcutPath=@($previous.Shortcuts|ForEach-Object Path)}
+        if($previous){$ShortcutPath=@($previous.Shortcuts|Where-Object {-not $_.PSObject.Properties['Kind'] -or $_.Kind -eq 'codex'}|ForEach-Object Path)}
         else{$ShortcutPath=@((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Codex (Proxy).lnk'),(Join-Path ([Environment]::GetFolderPath('Programs')) 'Codex (Proxy).lnk'))}
     }
     $entries=@();$shell=New-Object -ComObject WScript.Shell;$index=0
-    foreach($path in $ShortcutPath){
+    $requests=@($ShortcutPath|ForEach-Object {[pscustomobject]@{Path=$_;Kind='codex'}})
+    if($WithQuotaOrb -and -not $NoShortcuts -and -not $NoQuotaShortcut){
+        $folders=@($ShortcutPath|ForEach-Object {Split-Path -Parent ([IO.Path]::GetFullPath($_))}|Sort-Object -Unique)
+        foreach($folder in $folders){$requests+=[pscustomobject]@{Path=(Join-Path $folder 'Quota Orb.lnk');Kind='quota'}}
+    }
+    foreach($request in $requests){
+        $path=$request.Path
         if([IO.Path]::GetExtension($path) -ine '.lnk'){throw 'ShortcutPath must name a .lnk file.'}
         $actual=Get-KitPhysicalPath $path
         if(@($entries|Where-Object Path -eq $actual).Count){throw 'Duplicate shortcut target.'}
@@ -121,13 +130,15 @@ try{
         $stage=Join-Path $instanceRoot ("shortcut-after-$index.lnk");$link=$shell.CreateShortcut($stage)
         $link.TargetPath=$launcher;$link.Arguments='--config "'+$launchConfig+'"';$link.WorkingDirectory=Split-Path -Parent $launcher
         $link.IconLocation=if($old -and $old.Icon){$old.Icon}else{$codex.Executable+',0'}
-        $link.Description='Codex 专用代理启动；附加组件由 Desktop Kit 管理';$link.Save()
-        $entries+=[pscustomobject]@{Path=$actual;Backup=$backup;BeforeHash=$beforeHash;Staged=$stage;InstalledHash=(Get-KitHash $stage)};$index++
+        $link.Description='Codex 专用代理启动；附加组件由 Desktop Kit 管理'
+        if($request.Kind -eq 'quota'){$link.Arguments+=' --toggle-orb';$link.Description='Quota Orb 手动开关';$link.IconLocation=$launchSettings.QuotaOrbPath+',0'}
+        $link.Save()
+        $entries+=[pscustomobject]@{Path=$actual;Kind=$request.Kind;Backup=$backup;BeforeHash=$beforeHash;Staged=$stage;InstalledHash=(Get-KitHash $stage)};$index++
     }
     $receipt=[pscustomobject]@{
         SchemaVersion=1;Product='codex-desktop-kit';Status='prepared';Version=$metadata.version;InstanceId=$instance;Destination=$Destination;PackageRoot=$package;
         PreparedAt=[DateTimeOffset]::Now.ToString('o');CodexHome=$CodexHome;ProxyUri=$ProxyUri;PythonPath=$PythonPath;NodePath=$NodePath;
-        EnvState=$envState;LaunchConfig=$launchConfig;Launcher=$launcher;LauncherHash=(Get-KitHash $launcher);Shortcuts=$entries;
+        EnvState=$envState;LaunchConfig=$launchConfig;Launcher=$launcher;LauncherHash=(Get-KitHash $launcher);Shortcuts=$entries;NoQuotaShortcut=[bool]$NoQuotaShortcut;
         BridgePackage=$bridgePackage;BridgeReceipt=$bridgeReceipt;QuotaPackage=$orbPackage;QuotaDestination=$orbDestination;
         ComponentVersions=@{bridge=$(if($WithBridge){$manifest.bridge.version}else{$null});quotaOrb=$(if($WithQuotaOrb){$manifest.quotaOrb.version}else{$null})};
         PreviousReceipt=$previousPath;ColdRestartVerified=$false;SystemProxyTunOffVerified=$false
