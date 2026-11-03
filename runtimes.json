@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "architecture": "x64",
+  "powershell": {
+    "name": "PowerShell", "version": "7.6.9",
+    "url": "https://github.com/PowerShell/PowerShell/releases/download/v7.6.9/PowerShell-7.6.9-win-x64.zip",
+    "sha256": "ce7484804c0f0ad4dda10c958e71acdaf7eebfb22505c1b480f89e0e9f1da94d",
+    "executable": "pwsh.exe",
+    "source": "https://github.com/PowerShell/PowerShell/releases/tag/v7.6.9"
+  },
+  "python": {
+    "name": "Python", "version": "3.14.10",
+    "url": "https://www.python.org/ftp/python/3.14.10/python-3.14.10-embed-amd64.zip",
+    "sha256": "90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea4159",
+    "executable": "python.exe",
+    "source": "https://www.python.org/downloads/release/python-31410/"
+  },
+  "node": {
+    "name": "Node.js", "version": "22.23.4",
+    "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip",
+    "sha256": "cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20",
+    "executable": "node-v22.23.4-win-x64/node.exe",
+    "source": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
+  }
+}

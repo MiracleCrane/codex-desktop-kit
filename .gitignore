@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.exe
+*.zip
+*.log
+installation.json
+node_modules/

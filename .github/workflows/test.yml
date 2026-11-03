@@ -1,0 +1,37 @@
+name: Test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and launch behavior
+        shell: pwsh
+        run: ./build.ps1 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'kit-build') -Test
+      - name: Proxy configuration transactions
+        shell: pwsh
+        run: |
+          python -X utf8 tests/env-edit.test.py --work-directory (Join-Path $env:RUNNER_TEMP 'env-tests')
+          if ($LASTEXITCODE -ne 0) { throw 'Proxy configuration tests failed' }
+      - name: PowerShell syntax and pinned metadata
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -File -Include *.ps1,*.psm1 | ForEach-Object {
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+            if ($errors) { throw ($errors | Out-String) }
+          }
+          foreach ($path in @('components.json','runtimes.json')) {
+            $data = Get-Content $path -Raw | ConvertFrom-Json
+            foreach ($field in $data.PSObject.Properties) {
+              if ($field.Value -is [pscustomobject] -and $field.Value.sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Missing release hash' }
+            }
+          }
+      - name: Output paths and installation locking
+        shell: pwsh
+        run: ./tests/lock-path.test.ps1 -WorkDirectory (Join-Path $env:RUNNER_TEMP 'lock-path-tests')
