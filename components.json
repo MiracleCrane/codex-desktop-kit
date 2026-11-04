@@ -8,8 +8,8 @@
   },
   "quotaOrb": {
     "id": "quota-orb",
-    "version": "0.1.10",
-    "url": "https://github.com/MiracleCrane/quota-orb/releases/download/v0.1.10/quota-orb-0.1.10-windows.zip",
-    "sha256": "96d559bc6ec5871947b244376fb069a1268fc98c28f00d2c073192627b63f4e4"
+    "version": "0.1.11",
+    "url": "https://github.com/MiracleCrane/quota-orb/releases/download/v0.1.11/quota-orb-0.1.11-windows.zip",
+    "sha256": "fce40b1a284e188f068e5d424d6bc1c56fd2ca3c7a818492a933f3bb3422a006"
   }
 }
