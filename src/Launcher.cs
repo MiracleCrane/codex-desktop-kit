@@ -153,7 +153,10 @@ namespace CodexDesktopKit
         }
         public void StartQuotaOrb()
         {
-            StartQuotaOrbWith("--ensure-running");
+            var windows = NativeHostWindows.ForApplication(settings.Aumid);
+            var clock = Stopwatch.StartNew();
+            CompanionStartup.Observe(windows.Read, () => StartQuotaOrbWith("--ensure-running"),
+                () => clock.ElapsedMilliseconds, Thread.Sleep, Log);
         }
         public void ToggleQuotaOrb() { StartQuotaOrbWith("--toggle"); }
         private void StartQuotaOrbWith(string argument)

@@ -14,5 +14,9 @@ if($Test){
     if($LASTEXITCODE -ne 0){throw 'Test compilation failed.'}
     & (Join-Path $output 'LaunchTests.exe')
     if($LASTEXITCODE -ne 0){throw 'Launch behavior tests failed.'}
+    & $compiler /nologo /target:exe /optimize+ /codepage:65001 "/out:$(Join-Path $output 'CompanionStartupTests.exe')" (Join-Path $PSScriptRoot 'src/CompanionStartup.cs') (Join-Path $PSScriptRoot 'tests/CompanionStartupTests.cs')
+    if($LASTEXITCODE -ne 0){throw 'Readiness test compilation failed.'}
+    & (Join-Path $output 'CompanionStartupTests.exe')
+    if($LASTEXITCODE -ne 0){throw 'Companion readiness tests failed.'}
 }
 [pscustomobject]@{Launcher=(Join-Path $output 'CodexDesktopKit.exe');SHA256=(Get-FileHash -LiteralPath (Join-Path $output 'CodexDesktopKit.exe')).Hash}
