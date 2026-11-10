@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "bridge": {
     "id": "codex-transport-bridge",
-    "version": "1.5.1",
-    "url": "https://github.com/MiracleCrane/codex-transport-bridge/releases/download/v1.5.1/codex-transport-bridge-1.5.1-windows.zip",
-    "sha256": "8fcf6a8cfc2886262821655f161086900fb8bc38de7b5875206cca93a935f837"
+    "version": "1.5.2",
+    "url": "https://github.com/MiracleCrane/codex-transport-bridge/releases/download/v1.5.2/codex-transport-bridge-1.5.2-windows.zip",
+    "sha256": "6d55a0dd59319ea403a98f787146939fcf6da11dd5b94021e0d1f3790f15c708"
   },
   "quotaOrb": {
     "id": "quota-orb",
