@@ -14,6 +14,10 @@ if($Test){
     if($LASTEXITCODE -ne 0){throw 'Test compilation failed.'}
     & (Join-Path $output 'LaunchTests.exe')
     if($LASTEXITCODE -ne 0){throw 'Launch behavior tests failed.'}
+    & $compiler /nologo /target:exe /optimize+ /codepage:65001 /reference:System.Web.Extensions.dll "/out:$(Join-Path $output 'MagpieStartupTests.exe')" (Join-Path $PSScriptRoot 'src/MagpieStartup.cs') (Join-Path $PSScriptRoot 'tests/MagpieStartupTests.cs')
+    if($LASTEXITCODE -ne 0){throw 'Magpie readiness test compilation failed.'}
+    & (Join-Path $output 'MagpieStartupTests.exe')
+    if($LASTEXITCODE -ne 0){throw 'Magpie readiness tests failed.'}
     & $compiler /nologo /target:exe /optimize+ /codepage:65001 "/out:$(Join-Path $output 'CompanionStartupTests.exe')" (Join-Path $PSScriptRoot 'src/CompanionStartup.cs') (Join-Path $PSScriptRoot 'tests/CompanionStartupTests.cs')
     if($LASTEXITCODE -ne 0){throw 'Readiness test compilation failed.'}
     & (Join-Path $output 'CompanionStartupTests.exe')

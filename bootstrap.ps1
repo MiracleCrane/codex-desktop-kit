@@ -4,6 +4,8 @@ param(
     [string]$Destination=(Join-Path $env:LOCALAPPDATA 'Programs\CodexDesktopKit'),
     [string]$ProxyUri,
     [switch]$WithBridge,
+    [string]$MagpiePath,
+    [string]$MagpieBaseUrl,
     [switch]$WithQuotaOrb,
     [switch]$UseBundledRuntimes,
     [switch]$PrepareOnly,
@@ -11,13 +13,14 @@ param(
     [string]$CodexHome
 )
 $ErrorActionPreference='Stop'
+if($WithBridge -and $MagpiePath){throw 'Select Magpie or the transport bridge, not both.'}
 if(-not [Environment]::Is64BitOperatingSystem -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64'){throw 'The bootstrap currently supports Windows x64. Use explicit compatible runtimes on other architectures.'}
 if(-not $ProxyUri){
     $answer=Read-Host 'Local HTTP/mixed proxy port or URI [7897]'
     if(-not $answer){$answer='7897'}
     $ProxyUri=if($answer -match '^\d+$'){"http://127.0.0.1:$answer"}else{$answer}
     $WithQuotaOrb=(Read-Host 'Install optional Quota Orb? y/N') -match '^(y|yes)$'
-    $WithBridge=(Read-Host 'Install optional transport bridge? y/N') -match '^(y|yes)$'
+    if(-not $MagpiePath){$WithBridge=(Read-Host 'Install optional transport bridge? y/N') -match '^(y|yes)$'}
 }
 $proxy=[uri]$ProxyUri
 if($proxy.Scheme -ne 'http' -or -not $proxy.IsLoopback -or $proxy.UserInfo -or $proxy.Query -or $proxy.Fragment -or $proxy.AbsolutePath -ne '/'){throw 'Use a local HTTP/mixed proxy without embedded credentials.'}
@@ -99,6 +102,8 @@ if($PrepareOnly){[pscustomobject]@{PowerShellPath=$pwsh;PythonPath=$python;NodeP
 $arguments=@('-NoProfile','-File',(Join-Path $PSScriptRoot 'install.ps1'),'-Destination',$Destination,'-ProxyUri',$ProxyUri,'-PythonPath',$python)
 if($WithQuotaOrb){$arguments+='-WithQuotaOrb'}
 if($WithBridge){$arguments+=@('-WithBridge','-NodePath',$node)}
+if($MagpiePath){$arguments+=@('-MagpiePath',$MagpiePath)}
+if($MagpieBaseUrl){$arguments+=@('-MagpieBaseUrl',$MagpieBaseUrl)}
 if($NoShortcuts){$arguments+='-NoShortcuts'}
 if($CodexHome){$arguments+=@('-CodexHome',$CodexHome)}
 & $pwsh @arguments

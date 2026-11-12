@@ -37,7 +37,19 @@
 
 安装使用新的实例目录，不覆盖正在使用的二进制；上一次收据作为可回退版本保存。改变组件选择或所管理的快捷方式集合时，先 `uninstall.ps1` 恢复原有集成，再按新选择安装。不会静默取消桥接却留下旧模型端口。
 
-## 恢复与卸载
+## 迁移到 Magpie 模式
+
+Magpie 模式从 0.1.5 开始支持。先确保 Magpie 已保存供应商、账号和 Codex 接入，且当前 `openai_base_url` 是其本机 `/backend-api/codex` 地址；所引用的模型目录文件必须存在。套件不执行接入/断开或模型切换，这些操作可能使 Magpie 重启共享的 Codex app-server。
+
+对已有多代桥接安装，先备份当前收据、模型配置和真正使用的快捷方式。使用现安装包的 `restore.ps1 -InstallationPath $receiptPath -AllVersions -Confirm:$false` 解除所有旧集成，再使用新包的 `install.ps1`，保留代理、实际 Codex home、原 `ShortcutPath` 和已选择的 `-WithQuotaOrb`，改传 `-MagpiePath` 与 `-MagpieBaseUrl`，不传 `-WithBridge`。不要在中间阶段激活被恢复出的旧入口；不要用 `uninstall.ps1` 顺便卸载仍需保留的 Orb。
+
+所有恢复操作必须保留已经由 Magpie 接管的模型 URL；发生所有权冲突就检查，不强制覆盖。安装后收据与启动配置应包含 Magpie、没有 Bridge，后续 `update.ps1` 保留此选择。旧桥接文件和备份不删除。首次冷启动仍由用户正常退出/重开验收。
+
+Magpie 未运行时，启动器以 `tray` 启动已选的本机程序，最多等待 30 秒。它使用 Magpie 已保存的网关配置，不重新配置供应商、不消耗模型额度来探活。网络代理、内网绕过和 `CODEX_HOME` 随启动过程传递；不会新建开机任务。服务身份与路由不匹配时不会激活 Codex，也不会自动恢复其他模型入口。
+
+正常保存的网关配置会随 Magpie 启动；用户主动暂停或断开的状态不会被套件强行解除。已有 GUI 但网关暂时中断时会等待其自身恢复，超时则提示检查。启动前和网关就绪后都会重新核对模型入口，保留并行修改。
+
+## 恢复与卸载操作
 
 `restore.ps1` 恢复当前安装拥有的代理块、桥接 URL 和快捷方式；升级后执行一次恢复会重新启用前一版的收据。`-AllVersions` 沿收据链恢复到最初状态。
 

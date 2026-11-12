@@ -6,6 +6,8 @@ param(
     [string]$CodexHome=$(if($env:CODEX_HOME){$env:CODEX_HOME}else{Join-Path $HOME '.codex'}),
     [string]$NoProxy=$env:NO_PROXY,
     [switch]$WithBridge,
+    [string]$MagpiePath,
+    [string]$MagpieBaseUrl,
     [switch]$WithQuotaOrb,
     [string[]]$ShortcutPath=@(),
     [switch]$NoShortcuts,
@@ -15,6 +17,8 @@ param(
     [switch]$Launch
 )
 $ErrorActionPreference='Stop'
+if($WithBridge -and $MagpiePath){throw 'Magpie and the transport bridge are alternative model-route owners; select one.'}
+if($MagpieBaseUrl -and -not $MagpiePath){throw 'MagpieBaseUrl requires MagpiePath.'}
 if(-not $IsWindows){throw 'This package targets Windows Codex Desktop.'}
 Import-Module (Join-Path $PSScriptRoot 'scripts/Kit.Common.psm1') -Force
 if(-not $ProxyUri){
@@ -22,7 +26,7 @@ if(-not $ProxyUri){
     if(-not $answer){$answer='7897'}
     $ProxyUri=if($answer -match '^\d+$'){"http://127.0.0.1:$answer"}else{$answer}
     if(-not $WithQuotaOrb){$WithQuotaOrb=(Read-Host '安装额度悬浮球？y/N') -match '^(y|yes)$'}
-    if(-not $WithBridge){$WithBridge=(Read-Host '安装可选传输桥接？y/N') -match '^(y|yes)$'}
+    if(-not $WithBridge -and -not $MagpiePath){$WithBridge=(Read-Host '安装可选传输桥接？y/N') -match '^(y|yes)$'}
 }
 $ProxyUri=$ProxyUri.TrimEnd('/')
 Assert-KitProxy $ProxyUri
@@ -36,8 +40,18 @@ if($LASTEXITCODE -ne 0){throw 'Python 3.11 or newer is required.'}
 $routeText=& $PythonPath -X utf8 (Join-Path $PSScriptRoot 'scripts/inspect-route.py') --config (Join-Path $CodexHome 'config.toml')
 if($LASTEXITCODE -ne 0){throw 'Existing Codex configuration could not be inspected.'}
 $route=$routeText|ConvertFrom-Json
-if(-not $WithBridge -and $route.route -eq 'local-override'){
-    throw 'Codex already uses a local model endpoint. Restore its owning installation first, or select bridge integration; a proxy-only shortcut cannot start that external service.'
+if($MagpiePath){
+    $MagpiePath=Resolve-KitExecutable $MagpiePath 'magpie.exe'
+    if(-not $MagpieBaseUrl){$MagpieBaseUrl=$route.baseUrl}
+    if(-not $MagpieBaseUrl){throw 'Connect Codex to the verified Magpie gateway first; the kit does not rewrite model settings.'}
+    $MagpieBaseUrl=$MagpieBaseUrl.TrimEnd('/')
+    $check=& $PythonPath -X utf8 (Join-Path $PSScriptRoot 'scripts/inspect-route.py') --config (Join-Path $CodexHome 'config.toml') --expected-base-url $MagpieBaseUrl
+    if($LASTEXITCODE -ne 0){throw 'Magpie route validation failed.'}
+    $match=$check|ConvertFrom-Json
+    if(-not $match.matchesExpected -or -not $match.catalogExists){throw 'The current Codex route/catalog does not match the selected Magpie gateway.'}
+}
+if(-not $WithBridge -and -not $MagpiePath -and $route.route -eq 'local-override'){
+    throw 'Codex already uses a local model endpoint. For a configured Magpie gateway supply MagpiePath/MagpieBaseUrl; otherwise inspect its owner. The kit will not overwrite model settings.'
 }
 $powerShellPath=(Get-Process -Id $PID).Path
 $metadata=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'kit.json') -Raw|ConvertFrom-Json
@@ -55,7 +69,8 @@ try{
         if($previous.Product -ne 'codex-desktop-kit' -or $previous.CodexHome -ne $CodexHome){throw 'Existing receipt belongs to another installation.'}
         if($previous.Status -notin @('enabled','restored')){throw 'Previous installation needs restore/recovery before another install.'}
         if($previous.Status -eq 'enabled'){
-            if([bool]$previous.BridgeReceipt -ne [bool]$WithBridge -or [bool]$previous.QuotaDestination -ne [bool]$WithQuotaOrb){
+            $previousMagpie=$previous.PSObject.Properties['MagpiePath'] -and [bool]$previous.MagpiePath
+            if([bool]$previous.BridgeReceipt -ne [bool]$WithBridge -or [bool]$previous.QuotaDestination -ne [bool]$WithQuotaOrb -or [bool]$previousMagpie -ne [bool]$MagpiePath){
                 throw 'Changing component selection requires uninstall/restore of the existing integration first. Updates preserve the selected components.'
             }
             if($NoShortcuts -and @($previous.Shortcuts).Count -gt 0){throw 'Restore the existing shortcuts before switching to NoShortcuts.'}
@@ -105,9 +120,10 @@ try{
     $bypass=($envRecord.values.NO_PROXY.Split(',')|ForEach-Object {if($_ -eq '::1'){'[::1]'}else{$_}}) -join ';'
     if($bypass -notmatch '(^|;)<local>(;|$)'){$bypass+=';<local>'}
     $launchConfig=Join-Path $instanceRoot 'launch.json'
-    $launchSettings=[ordered]@{Version=$metadata.version;Aumid=$codex.Aumid;ProxyUri=$ProxyUri;NoProxy=$envRecord.values.NO_PROXY;ProxyBypassList=$bypass;CodexHome=$CodexHome;LogPath=(Join-Path $Destination 'launcher.log');QuotaOrbPath=$null;Bridge=$null}
+    $launchSettings=[ordered]@{Version=$metadata.version;Aumid=$codex.Aumid;ProxyUri=$ProxyUri;NoProxy=$envRecord.values.NO_PROXY;ProxyBypassList=$bypass;CodexHome=$CodexHome;LogPath=(Join-Path $Destination 'launcher.log');QuotaOrbPath=$null;Bridge=$null;Magpie=$null}
     if($WithQuotaOrb){$launchSettings.QuotaOrbPath=Join-Path $orbDestination 'QuotaOrb.exe'}
     if($WithBridge){$launchSettings.Bridge=@{ReceiptPath=$bridgeReceipt;RestoreScript=(Join-Path $bridgePackage 'scripts/Restore-Bridge.ps1');PowerShellPath=$powerShellPath}}
+    if($MagpiePath){$launchSettings.Magpie=@{ExecutablePath=$MagpiePath;BaseUrl=$MagpieBaseUrl;PythonPath=$PythonPath;InspectScript=(Join-Path $package 'scripts/inspect-route.py')}}
     Write-KitJson $launchConfig $launchSettings
     if(-not $NoShortcuts -and $ShortcutPath.Count -eq 0){
         if($previous){$ShortcutPath=@($previous.Shortcuts|Where-Object {-not $_.PSObject.Properties['Kind'] -or $_.Kind -eq 'codex'}|ForEach-Object Path)}
@@ -140,6 +156,7 @@ try{
         PreparedAt=[DateTimeOffset]::Now.ToString('o');CodexHome=$CodexHome;ProxyUri=$ProxyUri;PythonPath=$PythonPath;NodePath=$NodePath;
         EnvState=$envState;LaunchConfig=$launchConfig;Launcher=$launcher;LauncherHash=(Get-KitHash $launcher);Shortcuts=$entries;NoQuotaShortcut=[bool]$NoQuotaShortcut;
         BridgePackage=$bridgePackage;BridgeReceipt=$bridgeReceipt;QuotaPackage=$orbPackage;QuotaDestination=$orbDestination;
+        MagpiePath=$MagpiePath;MagpieBaseUrl=$MagpieBaseUrl;
         ComponentVersions=@{bridge=$(if($WithBridge){$manifest.bridge.version}else{$null});quotaOrb=$(if($WithQuotaOrb){$manifest.quotaOrb.version}else{$null})};
         PreviousReceipt=$previousPath;ColdRestartVerified=$false;SystemProxyTunOffVerified=$false
     }

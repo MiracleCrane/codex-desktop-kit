@@ -27,6 +27,20 @@
 
 ## 三个项目怎样配合
 
+### 已使用 Magpie
+
+先在 Magpie 中配置账号、供应商和 Codex 接入，再安装网关启动模式：
+
+```powershell
+./install.ps1 -ProxyUri $localProxy -CodexHome $actualCodexHome `
+  -MagpiePath $magpieExecutable -MagpieBaseUrl $configuredCodexBaseUrl `
+  -WithQuotaOrb -ShortcutPath $existingLinks
+```
+
+`bootstrap.ps1` 同样接受两个 Magpie 参数。Magpie 模式与 `-WithBridge` 互斥。快捷方式先检查代理与保存的模型入口，复用已就绪的 Magpie，或以托盘模式启动它并等待网关，然后激活 Codex。无需额外登录自启任务；模型、供应商、回退和登录态仍由 Magpie 管理。
+
+网关未就绪或入口已被修改时停止本次启动，不改模型设置、不切回桥接。旧套件改变模式前按[迁移说明](docs/installation.md#迁移到-magpie-模式)解除原集成。桥接文件可以保留，日常入口不再依赖它。
+
 | 项目 | 职责 |
 | --- | --- |
 | 本项目 | 组合安装、代理配置、最终快捷方式、版本清单、集成验收 |

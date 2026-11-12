@@ -30,6 +30,14 @@ namespace CodexDesktopKit
         public string LogPath { get; set; }
         public string QuotaOrbPath { get; set; }
         public BridgeSettings Bridge { get; set; }
+        public MagpieSettings Magpie { get; set; }
+    }
+    internal sealed class MagpieSettings
+    {
+        public string ExecutablePath { get; set; }
+        public string BaseUrl { get; set; }
+        public string PythonPath { get; set; }
+        public string InspectScript { get; set; }
     }
 
     [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -134,6 +142,38 @@ namespace CodexDesktopKit
                 return true;
             } catch { Log("bridge-restore-failed"); return false; }
         }
+        private bool MagpieRouteMatches()
+        {
+            try {
+                MagpieStartup.HealthUri(settings.Magpie.BaseUrl);
+                var info = new ProcessStartInfo(settings.Magpie.PythonPath,
+                    "-X utf8 \"" + settings.Magpie.InspectScript + "\" --config \""
+                    + Path.Combine(settings.CodexHome, "config.toml") + "\" --expected-base-url \""
+                    + settings.Magpie.BaseUrl + "\"") {
+                    UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true
+                };
+                using (var process = Process.Start(info)) {
+                    if (!process.WaitForExit(5000) || process.ExitCode != 0) return false;
+                    var state = json.Deserialize<Dictionary<string, object>>(process.StandardOutput.ReadToEnd());
+                    return Equals(state["matchesExpected"], true) && Equals(state["catalogExists"], true);
+                }
+            } catch { return false; }
+        }
+        public bool MagpieReady()
+        {
+            var clock = Stopwatch.StartNew();
+            return MagpieStartup.Ensure(MagpieRouteMatches,
+                () => MagpieStartup.Ready(settings.Magpie.BaseUrl),
+                () => {
+                    ConfigureProcessEnvironment();
+                    if (!File.Exists(settings.Magpie.ExecutablePath)) throw new FileNotFoundException();
+                    using (Process.Start(new ProcessStartInfo(settings.Magpie.ExecutablePath, "tray") {
+                        UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden,
+                        WorkingDirectory = Path.GetDirectoryName(settings.Magpie.ExecutablePath)
+                    })) { }
+                    Log("magpie-start-requested");
+                }, () => clock.ElapsedMilliseconds, Thread.Sleep, Log);
+        }
         private void ConfigureProcessEnvironment()
         {
             foreach (string key in new[] { "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY" })
@@ -187,9 +227,10 @@ namespace CodexDesktopKit
                     operations.ToggleQuotaOrb();
                     return 0;
                 }
-                int result = LaunchPlan.Run(operations, settings.Bridge != null, !String.IsNullOrEmpty(settings.QuotaOrbPath));
+                int result = LaunchPlan.Run(operations, settings.Bridge != null, !String.IsNullOrEmpty(settings.QuotaOrbPath), settings.Magpie != null);
                 if (result == 2) MessageBox.Show("本地代理端口未就绪。请启动代理客户端的 HTTP/mixed 端口后重试；无需开启 TUN 或系统代理。", "Codex Desktop Kit");
                 if (result == 3) MessageBox.Show("桥接未就绪，连接配置需要检查。请运行 Test-Kit.ps1；现有聊天与用户配置已保留。", "Codex Desktop Kit");
+                if (result == 4) MessageBox.Show("Magpie 网关或模型入口未就绪。请检查 Magpie 与 Test-Kit.ps1；模型配置已保留，没有切回桥接。", "Codex Desktop Kit");
                 return result;
             } catch {
                 MessageBox.Show("无法完成 Codex 启动，请运行套件的 Test-Kit.ps1 查看安装状态。", "Codex Desktop Kit");
