@@ -8,6 +8,18 @@ namespace CodexDesktopKit
 {
     internal static class MagpieStartup
     {
+        public static bool Prepare(Func<bool> matches, bool reconnectEnabled, Func<bool> clientsStopped,
+            Action reconnect, Action<string> log)
+        {
+            if (matches()) return true;
+            if (!reconnectEnabled) { log("magpie-route-mismatch"); return false; }
+            if (!clientsStopped()) { log("magpie-reconnect-needs-codex-exit"); return false; }
+            try { reconnect(); }
+            catch { log("magpie-reconnect-failed"); return false; }
+            if (!matches()) { log("magpie-reconnect-route-mismatch"); return false; }
+            log("magpie-reconnected");
+            return true;
+        }
         public static Uri HealthUri(string baseUrl)
         {
             Uri uri;

@@ -8,4 +8,5 @@ $arguments=@{Destination=$r.Destination;ProxyUri=$r.ProxyUri;CodexHome=$r.CodexH
 if($r.PSObject.Properties['NoQuotaShortcut']){$arguments.NoQuotaShortcut=[bool]$r.NoQuotaShortcut}
 if($r.NodePath){$arguments.NodePath=$r.NodePath}
 if($r.PSObject.Properties['MagpiePath'] -and $r.MagpiePath){$arguments.MagpiePath=$r.MagpiePath;$arguments.MagpieBaseUrl=$r.MagpieBaseUrl}
+if($r.PSObject.Properties['ReconnectMagpie']){$arguments.ReconnectMagpie=[bool]$r.ReconnectMagpie}
 & (Join-Path ([IO.Path]::GetFullPath($PackageDirectory)) 'install.ps1') @arguments

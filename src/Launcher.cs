@@ -38,6 +38,8 @@ namespace CodexDesktopKit
         public string BaseUrl { get; set; }
         public string PythonPath { get; set; }
         public string InspectScript { get; set; }
+        public string ReconnectScript { get; set; }
+        public bool ReconnectOnLaunch { get; set; }
     }
 
     [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -161,6 +163,20 @@ namespace CodexDesktopKit
         }
         public bool MagpieReady()
         {
+            if (!MagpieStartup.Prepare(MagpieRouteMatches, settings.Magpie.ReconnectOnLaunch,
+                () => Process.GetProcessesByName("codex").Length == 0 && Process.GetProcessesByName("ChatGPT").Length == 0,
+                () => {
+                    ConfigureProcessEnvironment();
+                    var info = new ProcessStartInfo(settings.Magpie.PythonPath,
+                        "-X utf8 \"" + settings.Magpie.ReconnectScript + "\" --config \""
+                        + Path.Combine(settings.CodexHome, "config.toml") + "\" --magpie \""
+                        + settings.Magpie.ExecutablePath + "\" --expected-base-url \"" + settings.Magpie.BaseUrl + "\"") {
+                        UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true
+                    };
+                    using (var process = Process.Start(info)) {
+                        if (!process.WaitForExit(85000) || process.ExitCode != 0) throw new InvalidOperationException();
+                    }
+                }, Log)) return false;
             var clock = Stopwatch.StartNew();
             return MagpieStartup.Ensure(MagpieRouteMatches,
                 () => MagpieStartup.Ready(settings.Magpie.BaseUrl),
@@ -230,7 +246,7 @@ namespace CodexDesktopKit
                 int result = LaunchPlan.Run(operations, settings.Bridge != null, !String.IsNullOrEmpty(settings.QuotaOrbPath), settings.Magpie != null);
                 if (result == 2) MessageBox.Show("本地代理端口未就绪。请启动代理客户端的 HTTP/mixed 端口后重试；无需开启 TUN 或系统代理。", "Codex Desktop Kit");
                 if (result == 3) MessageBox.Show("桥接未就绪，连接配置需要检查。请运行 Test-Kit.ps1；现有聊天与用户配置已保留。", "Codex Desktop Kit");
-                if (result == 4) MessageBox.Show("Magpie 网关或模型入口未就绪。请检查 Magpie 与 Test-Kit.ps1；模型配置已保留，没有切回桥接。", "Codex Desktop Kit");
+                if (result == 4) MessageBox.Show("Magpie 网关或模型入口未就绪。需要恢复接入时，请先完全退出 Codex 再用本快捷方式启动。请检查 Magpie 与 Test-Kit.ps1；没有自动切回桥接。", "Codex Desktop Kit");
                 return result;
             } catch {
                 MessageBox.Show("无法完成 Codex 启动，请运行套件的 Test-Kit.ps1 查看安装状态。", "Codex Desktop Kit");

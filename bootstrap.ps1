@@ -6,6 +6,7 @@ param(
     [switch]$WithBridge,
     [string]$MagpiePath,
     [string]$MagpieBaseUrl,
+    [switch]$ReconnectMagpie,
     [switch]$WithQuotaOrb,
     [switch]$UseBundledRuntimes,
     [switch]$PrepareOnly,
@@ -14,6 +15,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 if($WithBridge -and $MagpiePath){throw 'Select Magpie or the transport bridge, not both.'}
+if($ReconnectMagpie -and -not $MagpiePath){throw 'ReconnectMagpie requires MagpiePath.'}
 if(-not [Environment]::Is64BitOperatingSystem -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64'){throw 'The bootstrap currently supports Windows x64. Use explicit compatible runtimes on other architectures.'}
 if(-not $ProxyUri){
     $answer=Read-Host 'Local HTTP/mixed proxy port or URI [7897]'
@@ -104,6 +106,7 @@ if($WithQuotaOrb){$arguments+='-WithQuotaOrb'}
 if($WithBridge){$arguments+=@('-WithBridge','-NodePath',$node)}
 if($MagpiePath){$arguments+=@('-MagpiePath',$MagpiePath)}
 if($MagpieBaseUrl){$arguments+=@('-MagpieBaseUrl',$MagpieBaseUrl)}
+if($ReconnectMagpie){$arguments+='-ReconnectMagpie'}
 if($NoShortcuts){$arguments+='-NoShortcuts'}
 if($CodexHome){$arguments+=@('-CodexHome',$CodexHome)}
 & $pwsh @arguments

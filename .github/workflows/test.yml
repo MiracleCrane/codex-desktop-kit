@@ -20,6 +20,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Proxy configuration tests failed' }
           python -X utf8 tests/inspect-route.test.py
           if ($LASTEXITCODE -ne 0) { throw 'Model route inspection tests failed' }
+          python -B -X utf8 tests/reconnect-magpie.test.py
+          if ($LASTEXITCODE -ne 0) { throw 'Magpie reconnect tests failed' }
       - name: PowerShell syntax and pinned metadata
         shell: pwsh
         run: |

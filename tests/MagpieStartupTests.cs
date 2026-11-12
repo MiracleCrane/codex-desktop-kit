@@ -31,6 +31,11 @@ class MagpieStartupTests
         bool route=true,healthy=false;
         result=MagpieStartup.Ensure(()=>route,()=>healthy,()=>{healthy=true;route=false;},()=>now,n=>now+=n,logs.Add,1000);
         Assert(!result&&logs.Contains("magpie-route-changed"),"route changed during gateway startup but was accepted");
+        int reconnects=0;route=false;
+        Assert(!MagpieStartup.Prepare(()=>route,true,()=>false,()=>{reconnects++;route=true;},logs.Add)&&reconnects==0,"running Codex was reconnected");
+        Assert(!MagpieStartup.Prepare(()=>route,false,()=>true,()=>{reconnects++;route=true;},logs.Add)&&reconnects==0,"reconnect ran without selection");
+        Assert(MagpieStartup.Prepare(()=>route,true,()=>true,()=>{reconnects++;route=true;},logs.Add)&&reconnects==1,"stopped Codex was not reconnected");
+        Assert(MagpieStartup.Prepare(()=>route,true,()=>false,()=>reconnects++,logs.Add)&&reconnects==1,"already connected route was rewritten");
         Console.WriteLine("Magpie readiness: identity, origin, reuse, cold start, timeout and route ownership passed.");
         return 0;
     }

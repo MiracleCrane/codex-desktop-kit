@@ -20,6 +20,8 @@ if($r.PSObject.Properties['MagpiePath'] -and $r.MagpiePath){
     try{$health=Invoke-RestMethod -Uri (([uri]$r.MagpieBaseUrl).GetLeftPart([UriPartial]::Authority)+'/api/hello') -NoProxy -TimeoutSec 2;$gatewayReady=$health.name -eq 'magpie' -and [bool]$health.version}catch{}
     $magpie=[pscustomobject]@{ExecutableExists=(Test-Path -LiteralPath $r.MagpiePath -PathType Leaf);RouteMatches=$match.matchesExpected;CatalogExists=$match.catalogExists;GatewayReady=$gatewayReady}
     $settings=Get-Content -Raw -LiteralPath $r.LaunchConfig|ConvertFrom-Json
+    $reconnect=$r.PSObject.Properties['ReconnectMagpie'] -and [bool]$r.ReconnectMagpie
+    if([bool]$settings.Magpie.ReconnectOnLaunch -ne [bool]$reconnect -or ($reconnect -and -not(Test-Path -LiteralPath $settings.Magpie.ReconnectScript))){throw 'Magpie reconnect settings differ from the receipt.'}
     if($r.BridgeReceipt -or $settings.Bridge -or -not $settings.Magpie -or $settings.Magpie.BaseUrl -ne $r.MagpieBaseUrl -or $settings.Magpie.ExecutablePath -ne $r.MagpiePath){throw 'Magpie mode conflicts with the installed launch configuration.'}
 }
 $shortcuts=@($r.Shortcuts|ForEach-Object {$actual=Get-KitShortcut $_.Path;[pscustomobject]@{Path=$_.Path;Matches=($null -ne $actual -and $actual.Hash -eq $_.InstalledHash)}})

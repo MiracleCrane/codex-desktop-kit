@@ -8,6 +8,7 @@ param(
     [switch]$WithBridge,
     [string]$MagpiePath,
     [string]$MagpieBaseUrl,
+    [switch]$ReconnectMagpie,
     [switch]$WithQuotaOrb,
     [string[]]$ShortcutPath=@(),
     [switch]$NoShortcuts,
@@ -19,6 +20,7 @@ param(
 $ErrorActionPreference='Stop'
 if($WithBridge -and $MagpiePath){throw 'Magpie and the transport bridge are alternative model-route owners; select one.'}
 if($MagpieBaseUrl -and -not $MagpiePath){throw 'MagpieBaseUrl requires MagpiePath.'}
+if($ReconnectMagpie -and -not $MagpiePath){throw 'ReconnectMagpie requires MagpiePath.'}
 if(-not $IsWindows){throw 'This package targets Windows Codex Desktop.'}
 Import-Module (Join-Path $PSScriptRoot 'scripts/Kit.Common.psm1') -Force
 if(-not $ProxyUri){
@@ -123,7 +125,7 @@ try{
     $launchSettings=[ordered]@{Version=$metadata.version;Aumid=$codex.Aumid;ProxyUri=$ProxyUri;NoProxy=$envRecord.values.NO_PROXY;ProxyBypassList=$bypass;CodexHome=$CodexHome;LogPath=(Join-Path $Destination 'launcher.log');QuotaOrbPath=$null;Bridge=$null;Magpie=$null}
     if($WithQuotaOrb){$launchSettings.QuotaOrbPath=Join-Path $orbDestination 'QuotaOrb.exe'}
     if($WithBridge){$launchSettings.Bridge=@{ReceiptPath=$bridgeReceipt;RestoreScript=(Join-Path $bridgePackage 'scripts/Restore-Bridge.ps1');PowerShellPath=$powerShellPath}}
-    if($MagpiePath){$launchSettings.Magpie=@{ExecutablePath=$MagpiePath;BaseUrl=$MagpieBaseUrl;PythonPath=$PythonPath;InspectScript=(Join-Path $package 'scripts/inspect-route.py')}}
+    if($MagpiePath){$launchSettings.Magpie=@{ExecutablePath=$MagpiePath;BaseUrl=$MagpieBaseUrl;PythonPath=$PythonPath;InspectScript=(Join-Path $package 'scripts/inspect-route.py');ReconnectOnLaunch=[bool]$ReconnectMagpie;ReconnectScript=(Join-Path $package 'scripts/reconnect-magpie.py')}}
     Write-KitJson $launchConfig $launchSettings
     if(-not $NoShortcuts -and $ShortcutPath.Count -eq 0){
         if($previous){$ShortcutPath=@($previous.Shortcuts|Where-Object {-not $_.PSObject.Properties['Kind'] -or $_.Kind -eq 'codex'}|ForEach-Object Path)}
@@ -156,7 +158,7 @@ try{
         PreparedAt=[DateTimeOffset]::Now.ToString('o');CodexHome=$CodexHome;ProxyUri=$ProxyUri;PythonPath=$PythonPath;NodePath=$NodePath;
         EnvState=$envState;LaunchConfig=$launchConfig;Launcher=$launcher;LauncherHash=(Get-KitHash $launcher);Shortcuts=$entries;NoQuotaShortcut=[bool]$NoQuotaShortcut;
         BridgePackage=$bridgePackage;BridgeReceipt=$bridgeReceipt;QuotaPackage=$orbPackage;QuotaDestination=$orbDestination;
-        MagpiePath=$MagpiePath;MagpieBaseUrl=$MagpieBaseUrl;
+        MagpiePath=$MagpiePath;MagpieBaseUrl=$MagpieBaseUrl;ReconnectMagpie=[bool]$ReconnectMagpie;
         ComponentVersions=@{bridge=$(if($WithBridge){$manifest.bridge.version}else{$null});quotaOrb=$(if($WithQuotaOrb){$manifest.quotaOrb.version}else{$null})};
         PreviousReceipt=$previousPath;ColdRestartVerified=$false;SystemProxyTunOffVerified=$false
     }

@@ -28,7 +28,7 @@ $fixtureSource=Join-Path $WorkDirectory 'fixture.cs'
 $magpie=Join-Path $WorkDirectory 'lzc-magpie-fixture.exe'
 & (Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe') /nologo /target:winexe "/out:$magpie" $fixtureSource
 if($LASTEXITCODE -ne 0){throw 'Fixture compilation failed.'}
-$arguments.MagpiePath=$magpie;$arguments.MagpieBaseUrl=$base
+$arguments.MagpiePath=$magpie;$arguments.MagpieBaseUrl=$base;$arguments.ReconnectMagpie=$true
 $rejected=$false;try{& (Join-Path $root 'install.ps1') @arguments -WithBridge|Out-Null}catch{$rejected=$true}
 if(-not $rejected){throw 'Conflicting gateway owners were accepted.'}
 & (Join-Path $root 'install.ps1') @arguments | Out-Null
@@ -36,7 +36,7 @@ $first=Get-Content -Raw -LiteralPath $receiptPath|ConvertFrom-Json
 if($first.BridgeReceipt -or $first.MagpieBaseUrl-ne $base -or (Get-KitHash $config)-ne $modelHash){throw 'Magpie install changed model configuration or selected bridge.'}
 & (Join-Path $root 'update.ps1') -InstallationPath $receiptPath -PackageDirectory $root | Out-Null
 $updated=Get-Content -Raw -LiteralPath $receiptPath|ConvertFrom-Json
-if($updated.BridgeReceipt -or $updated.MagpiePath-ne $magpie -or $updated.MagpieBaseUrl-ne $base){throw 'Update did not preserve Magpie mode.'}
+if($updated.BridgeReceipt -or $updated.MagpiePath-ne $magpie -or $updated.MagpieBaseUrl-ne $base -or -not $updated.ReconnectMagpie){throw 'Update did not preserve Magpie mode.'}
 $launch=Get-Content -Raw -LiteralPath $updated.LaunchConfig|ConvertFrom-Json
 if($launch.Bridge -or $launch.Magpie.ExecutablePath-ne $magpie){throw 'Launcher still depends on the bridge.'}
 $receiptHash=Get-KitHash $receiptPath;$linkHash=Get-KitHash $linkPath
