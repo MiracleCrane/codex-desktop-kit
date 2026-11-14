@@ -164,7 +164,7 @@ namespace CodexDesktopKit
         public bool MagpieReady()
         {
             if (!MagpieStartup.Prepare(MagpieRouteMatches, settings.Magpie.ReconnectOnLaunch,
-                () => Process.GetProcessesByName("codex").Length == 0 && Process.GetProcessesByName("ChatGPT").Length == 0,
+                ClientsStoppedForMagpieReconnect,
                 () => {
                     ConfigureProcessEnvironment();
                     var info = new ProcessStartInfo(settings.Magpie.PythonPath,
@@ -197,6 +197,28 @@ namespace CodexDesktopKit
             Environment.SetEnvironmentVariable("NO_PROXY", settings.NoProxy, EnvironmentVariableTarget.Process);
             Environment.SetEnvironmentVariable("NODE_USE_ENV_PROXY", "1", EnvironmentVariableTarget.Process);
             Environment.SetEnvironmentVariable("CODEX_HOME", settings.CodexHome, EnvironmentVariableTarget.Process);
+        }
+        private static bool HasProcess(string name)
+        {
+            var processes = Process.GetProcessesByName(name);
+            try { return processes.Length != 0; }
+            finally { foreach (var process in processes) process.Dispose(); }
+        }
+        private bool ClientsStoppedForMagpieReconnect()
+        {
+            var clock = Stopwatch.StartNew();
+            return MagpieStartup.WaitForClients(() => !HasProcess("ChatGPT"),
+                () => !HasProcess("codex") && !HasProcess("ChatGPT"),
+                () => {
+                    if (String.IsNullOrEmpty(settings.QuotaOrbPath) || !File.Exists(settings.QuotaOrbPath)) return;
+                    using (var process = Process.Start(new ProcessStartInfo(settings.QuotaOrbPath, "--exit") {
+                        UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden
+                    })) {
+                        if (!process.WaitForExit(2000) || process.ExitCode != 0)
+                            throw new InvalidOperationException("悬浮球尚未完成退出。");
+                    }
+                    Log("quota-orb-stop-requested-for-magpie-reconnect");
+                }, () => clock.ElapsedMilliseconds, Thread.Sleep, Log);
         }
         public void ActivateCodex()
         {

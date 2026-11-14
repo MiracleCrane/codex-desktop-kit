@@ -1,12 +1,18 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using CodexDesktopKit;
 
 class MagpieStartupTests
 {
     static void Assert(bool value,string message){if(!value)throw new Exception(message);}
-    static int Main()
+    static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--quota-helper-fixture") {
+            using (var stop = EventWaitHandle.OpenExisting(args[1])) stop.WaitOne();
+            return 0;
+        }
         Assert(MagpieStartup.HealthUri("http://127.0.0.1:3456/backend-api/codex").AbsoluteUri=="http://127.0.0.1:3456/api/hello","health URL changed the origin");
         foreach(var value in new[]{"https://127.0.0.1:3456/backend-api/codex","http://example.com/backend-api/codex","http://user@127.0.0.1:3456/backend-api/codex","http://127.0.0.1:3456/other","http://127.0.0.1:3456/backend-api/codex?token=x"}){
             bool rejected=false;try{MagpieStartup.HealthUri(value);}catch(InvalidOperationException){rejected=true;}
@@ -36,6 +42,35 @@ class MagpieStartupTests
         Assert(!MagpieStartup.Prepare(()=>route,false,()=>true,()=>{reconnects++;route=true;},logs.Add)&&reconnects==0,"reconnect ran without selection");
         Assert(MagpieStartup.Prepare(()=>route,true,()=>true,()=>{reconnects++;route=true;},logs.Add)&&reconnects==1,"stopped Codex was not reconnected");
         Assert(MagpieStartup.Prepare(()=>route,true,()=>false,()=>reconnects++,logs.Add)&&reconnects==1,"already connected route was rewritten");
+        int stops=0; bool helperAlive=true; now=0;
+        Assert(MagpieStartup.WaitForClients(()=>true,()=>!helperAlive,()=>{stops++;helperAlive=false;},()=>now,n=>now+=n,logs.Add,500)
+            && stops==1,"the orb's quota helper blocked reconnect after the desktop exited");
+        stops=0;
+        Assert(!MagpieStartup.WaitForClients(()=>false,()=>false,()=>stops++,()=>now,n=>now+=n,logs.Add,500)
+            && stops==0,"a running desktop caused its companion to be stopped");
+        now=0;stops=0;
+        Assert(!MagpieStartup.WaitForClients(()=>true,()=>false,()=>stops++,()=>now,n=>now+=n,logs.Add,500)
+            && stops==1 && now==500,"a real CLI was ignored or the close wait was unbounded");
+        bool desktopGone=true;stops=0;
+        Assert(!MagpieStartup.WaitForClients(()=>desktopGone,()=>false,()=>{stops++;desktopGone=false;},()=>now,n=>now+=n,logs.Add,500)
+            && stops==1,"a desktop reopened during cleanup but reconnect was allowed");
+        stops=0;
+        Assert(MagpieStartup.WaitForClients(()=>true,()=>true,()=>stops++,()=>now,n=>now+=n,logs.Add,500)
+            && stops==0,"cleanup was requested when no Codex process remained");
+        Assert(!MagpieStartup.WaitForClients(()=>true,()=>false,()=>{throw new Exception();},()=>now,n=>now+=n,logs.Add,500)
+            && logs.Contains("quota-orb-stop-for-reconnect-failed"),"companion cleanup failure allowed reconnect");
+        string signalName="Local\\lzc-quota-helper-"+Guid.NewGuid().ToString("N");
+        using (var stop=new EventWaitHandle(false,EventResetMode.ManualReset,signalName))
+        using (var helper=Process.Start(new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName,
+            "--quota-helper-fixture "+signalName){UseShellExecute=false,CreateNoWindow=true})) {
+            try {
+                Assert(!MagpieStartup.Prepare(()=>false,true,()=>helper.HasExited,()=>{throw new Exception("must not reconnect");},logs.Add),
+                    "the original guard unexpectedly accepted the lingering helper");
+                var clock=Stopwatch.StartNew();
+                Assert(MagpieStartup.WaitForClients(()=>true,()=>helper.HasExited,()=>stop.Set(),()=>clock.ElapsedMilliseconds,Thread.Sleep,logs.Add)
+                    && helper.HasExited,"native helper did not exit before reconnect was allowed");
+            } finally { if(!helper.HasExited){stop.Set();if(!helper.WaitForExit(2000))helper.Kill();} }
+        }
         Console.WriteLine("Magpie readiness: identity, origin, reuse, cold start, timeout and route ownership passed.");
         return 0;
     }

@@ -8,6 +8,24 @@ namespace CodexDesktopKit
 {
     internal static class MagpieStartup
     {
+        public static bool WaitForClients(Func<bool> desktopStopped, Func<bool> clientsStopped,
+            Action stopCompanion, Func<long> clock, Action<int> sleep, Action<string> log, int timeoutMs = 5000)
+        {
+            if (!desktopStopped()) return false;
+            if (clientsStopped()) return true;
+            // The companion owns a read-only Codex app-server. Ask it to close that
+            // child normally before deciding that a real CLI is still using Codex.
+            try { stopCompanion(); }
+            catch { log("quota-orb-stop-for-reconnect-failed"); return false; }
+            long until = clock() + timeoutMs;
+            while (desktopStopped()) {
+                if (clientsStopped()) { log("magpie-reconnect-clients-stopped"); return true; }
+                if (clock() >= until) break;
+                sleep(100);
+            }
+            return false;
+        }
+
         public static bool Prepare(Func<bool> matches, bool reconnectEnabled, Func<bool> clientsStopped,
             Action reconnect, Action<string> log)
         {
