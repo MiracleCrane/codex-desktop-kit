@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory)][string]$ConfigPath,
     [ValidateSet('Compatibility','Original')][string]$Mode='Compatibility',
     [switch]$PrepareOnly,
-    [switch]$PackageWorker
+    [switch]$PackageWorker,
+    [string]$ExpectedPackageFullName
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
@@ -42,7 +43,9 @@ $active = @(Get-Process -Name ChatGPT,codex,tran -ErrorAction SilentlyContinue)
 if ($active.Count -gt 0 -and !$PrepareOnly) {
     throw 'Codex/backend is already running. Keep using it, or exit normally before launching. No process was stopped.'
 }
+if ($ExpectedPackageFullName -and !$PrepareOnly) { throw 'ExpectedPackageFullName is a prepare-only resolver constraint.' }
 $packages = @(Get-AppxPackage -Name OpenAI.Codex | Sort-Object { [version]$_.Version } -Descending)
+if ($ExpectedPackageFullName) { $packages = @($packages | Where-Object { $_.PackageFullName -ceq $ExpectedPackageFullName }) }
 if ($packages.Count -eq 0) { throw 'Official Codex package is not installed for this user.' }
 $package = $packages[0]
 $app = Join-Path $package.InstallLocation 'app\ChatGPT.exe'
@@ -105,7 +108,7 @@ try {
         Write-AtomicJson $manifest $manifestPath
     }
 } finally { $lock.Dispose() }
-if ($PrepareOnly) { [pscustomobject]@{Status='prepared-not-launched';Version=$version;BackendPath=$manifest.BackendPath}; return }
+if ($PrepareOnly) { [pscustomobject]@{Status='prepared-not-launched';Version=$version;PackageFullName=$package.PackageFullName;BackendPath=$manifest.BackendPath}; return }
 # Check again after preparation; never kill another instance that appeared meanwhile.
 if (@(Get-Process -Name ChatGPT,codex,tran -ErrorAction SilentlyContinue).Count -gt 0) {
     throw 'Another Codex instance appeared during preparation. No process was stopped.'
