@@ -23,7 +23,7 @@ PrepareOnly verifies/caches a version without closing or starting the applicatio
 
 The selected shortcut may be named **Tran (Codex7897)**. Back up its previous .lnk and preserve the original icon resource. Do not rewrite unrelated shortcuts or add login startup. Only one operator owns shortcut/receipt edits.
 
-This isolated entrypoint does not automatically run the kit's optional Magpie or Orb hooks. Deployment must preserve and separately validate selected hooks rather than discard them, stack wrappers, or claim equivalent behavior. Do not replace an integrated shortcut until these choices are reconciled.
+By default this entrypoint starts neither Magpie nor Orb. On the selected workstation only, an explicit local Gateway object may set Enabled=true, ExecutablePath to the already-installed approved Magpie executable, Port to its configured loopback gateway port, and TimeoutSeconds (1..120, default 20). Normal launch reuses the exact executable path or starts it with the fixed tray argument, then waits for a listening port owned by that executable. PrepareOnly never starts the gateway. gateway-status.json records readiness/failure without claiming successful model traffic. The launcher does not install, update, authenticate or reconfigure the gateway. Orb is not launched: preserve that separately only after its selected lifecycle is verified. This gateway addition is a review change until isolated and real startup acceptance pass.
 
 ## Package identity and child environment
 
