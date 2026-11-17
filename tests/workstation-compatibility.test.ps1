@@ -15,7 +15,12 @@ $resources=Join-Path $root 'package\app\resources'
 $global:fixtureVersion='1.0.0.0'
 $global:fixtureSignature='Valid'
 $global:fixtureActive=$false
-function Get-AppxPackage { param($Name) [pscustomobject]@{Version=$global:fixtureVersion;InstallLocation=(Join-Path $root 'package');PackageFullName="fixture-$global:fixtureVersion"} }
+function Get-AppxPackage { param($Name) [pscustomobject]@{Version=$global:fixtureVersion;InstallLocation=(Join-Path $root 'package');PackageFullName="fixture-$global:fixtureVersion";PackageFamilyName="fixture-family"} }
+$global:fixturePackageLaunch=$null
+function Get-AppxPackageManifest { param($Package) [pscustomobject]@{Package=[pscustomobject]@{Applications=[pscustomobject]@{Application=@([pscustomobject]@{Executable='app\ChatGPT.exe';Id='App'})}}} }
+function Invoke-CommandInDesktopPackage { param($PackageFamilyName,$AppId,$Command,$Args,[switch]$PreventBreakaway)
+    $global:fixturePackageLaunch=@{Family=$PackageFamilyName;AppId=$AppId;Command=$Command;Arguments=$Args;PreventBreakaway=[bool]$PreventBreakaway}
+}
 function Get-AuthenticodeSignature { param($LiteralPath) [pscustomobject]@{Status=$global:fixtureSignature;SignerCertificate=[pscustomobject]@{Subject='CN=OpenAI OpCo LLC, O=OpenAI OpCo LLC'}} }
 function Get-Process { param($Name,$ErrorAction) if($global:fixtureActive){[pscustomobject]@{Id=1}} }
 $config=Join-Path $root 'profile.json'
@@ -52,6 +57,11 @@ $c.AuxiliaryFiles=@('helper.exe');Save-Profile
 $global:fixtureActive=$true
 Expect-Failure { & $scriptPath -ConfigPath $config } 'already running'
 $global:fixtureActive=$false
+$request=& $scriptPath -ConfigPath $config
+if($request.Status -ne 'package-launch-requested' -or !$global:fixturePackageLaunch.PreventBreakaway -or $global:fixturePackageLaunch.Family -ne 'fixture-family' -or $global:fixturePackageLaunch.AppId -ne 'App'){throw 'Package activation dispatch failed'}
+$encoded=($global:fixturePackageLaunch.Arguments -split ' ')[-1]
+$decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
+if($decoded -notmatch '-PackageWorker' -or $decoded -notmatch [regex]::Escape($config)){throw 'Worker command lost configuration'}
 [IO.File]::WriteAllText($b.BackendPath,'tampered fixture')
 Expect-Failure { & $scriptPath -ConfigPath $config -PrepareOnly } 'integrity mismatch'
-"PASS: parse, prepare, cache reuse, version isolation, previous manifest, opt-in, machine scope, signature rejection, missing helper, active-process guard, tamper rejection. Fixture retained at $root"
+"PASS: parse, prepare, cache reuse, version isolation, previous manifest, opt-in, machine scope, signature rejection, missing helper, active-process guard, package activation dispatch, worker command, tamper rejection. Fixture retained at $root"
