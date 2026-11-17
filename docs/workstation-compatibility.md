@@ -50,3 +50,5 @@ Before ordinary launch, a Windows PowerShell 5 worker reads the registered packa
 This is a bounded race-reduction guard, not an atomic deployment lock. A download or handoff may leave the old registered package reporting healthy, and Windows may start another deployment after the final check. Without a reliable intended-version signal the launcher cannot prove that a newer planned update has completed. A timeout/error does not cancel installation or start a fallback old package.
 
 Microsoft documents these status properties in [PackageStatus](https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.packagestatus). Readiness must be measured again rather than inferred from an existing WindowsApps directory.
+
+The selected workstation deployment has passed both isolated suites and a read-only Windows PowerShell 5 check against its currently healthy registered package, with no application restart. This is not a test during real installation or a future-version update. The shared launch gate is deployed there; the separate local daily component coordinator is still not fully represented by the public Gateway-only implementation.
