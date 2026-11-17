@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory)][string]$ConfigPath,
     [ValidateSet('Compatibility','Original')][string]$Mode='Compatibility',
-    [switch]$PrepareOnly
+    [switch]$PrepareOnly,
+    [switch]$PackageWorker
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
@@ -109,6 +110,52 @@ if ($PrepareOnly) { [pscustomobject]@{Status='prepared-not-launched';Version=$ve
 if (@(Get-Process -Name ChatGPT,codex,tran -ErrorAction SilentlyContinue).Count -gt 0) {
     throw 'Another Codex instance appeared during preparation. No process was stopped.'
 }
+
+# MSIX identity is required by native package/update APIs. Direct Process.Start from
+# an unpackaged shell loses it. Enter the installed package before creating the app.
+if (!$PackageWorker) {
+    $null = Get-Command Invoke-CommandInDesktopPackage -ErrorAction Stop
+    $appManifest = Get-AppxPackageManifest -Package $package.PackageFullName
+    $entries = @($appManifest.Package.Applications.Application | Where-Object {
+        ([string]$_.Executable).Replace('/','\\') -ieq 'app\\ChatGPT.exe'
+    })
+    if ($entries.Count -ne 1) { throw 'Cannot identify the installed desktop application entry.' }
+    $quote = { param([string]$s) "'" + $s.Replace("'","''") + "'" }
+    $command = '& ' + (& $quote $PSCommandPath) + ' -ConfigPath ' +
+        (& $quote ([IO.Path]::GetFullPath($ConfigPath))) + ' -Mode ' +
+        (& $quote $Mode) + ' -PackageWorker'
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+    $shell = Join-Path $env:SystemRoot 'System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+    # Environment is set by the worker below, since the package activation API
+    # does not reliably inherit the calling shell's process environment.
+    Invoke-CommandInDesktopPackage -PackageFamilyName $package.PackageFamilyName -AppId ([string]$entries[0].Id) -Command $shell -Args ("-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + $encoded) -PreventBreakaway
+    [pscustomobject]@{Status='package-launch-requested';Mode=$Mode;Version=$version}
+    return
+}
+if (!('CompatibilityPackageIdentity' -as [type])) {
+    Add-Type @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class CompatibilityPackageIdentity {
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode)]
+    public static extern int GetCurrentPackageFullName(ref uint length, StringBuilder name);
+    public static string Read() {
+        uint length=0;
+        int result=GetCurrentPackageFullName(ref length,null);
+        if(result!=122) throw new InvalidOperationException("No package identity: "+result);
+        var value=new StringBuilder((int)length);
+        result=GetCurrentPackageFullName(ref length,value);
+        if(result!=0) throw new InvalidOperationException("Package identity failed: "+result);
+        return value.ToString();
+    }
+}
+'@
+}
+if ([CompatibilityPackageIdentity]::Read() -ne $package.PackageFullName) {
+    throw 'Worker package identity does not match the selected installed package; refusing launch.'
+}
+
 $socket = [Net.Sockets.TcpClient]::new()
 try {
     if (!$socket.ConnectAsync($proxy.DnsSafeHost,$proxy.Port).Wait(1500) -or !$socket.Connected) { throw 'Local proxy is not ready.' }
