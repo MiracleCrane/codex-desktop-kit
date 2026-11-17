@@ -50,7 +50,7 @@ if (!$PrepareOnly) {
         if (!$ExpectedPackageFullName) { throw 'Package worker requires the original expected package identity.' }
         $readyPackage = Assert-CodexPackageReady -ExpectedPackageFullName $ExpectedPackageFullName
     } else {
-        $readyPackage = Wait-CodexPackageReady
+        $readyPackage = Get-CodexReadyPackage
         $ExpectedPackageFullName = $readyPackage.PackageFullName
     }
 }
