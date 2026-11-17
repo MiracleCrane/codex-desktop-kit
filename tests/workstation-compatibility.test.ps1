@@ -6,6 +6,16 @@ $tokens=$null; $errors=$null
 if ($errors.Count) { throw ($errors | Out-String) }
 $root=Join-Path ([IO.Path]::GetTempPath()) ('kit-compat-test-'+[guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($root) | Out-Null
+# Copy the launcher to an isolated directory with a deterministic gate fixture.
+# Real gate transitions are tested separately in deployment-gate.test.ps1.
+$fixtureScripts=Join-Path $root 'launcher'
+[IO.Directory]::CreateDirectory($fixtureScripts) | Out-Null
+Copy-Item -LiteralPath $scriptPath -Destination (Join-Path $fixtureScripts 'Launch-Compatibility.ps1')
+$scriptPath=Join-Path $fixtureScripts 'Launch-Compatibility.ps1'
+@'
+function Wait-CodexPackageReady { [pscustomobject]@{Ready=$true;PackageFullName="fixture-$global:fixtureVersion"} }
+function Assert-CodexPackageReady { param($ExpectedPackageFullName) if($ExpectedPackageFullName -ne "fixture-$global:fixtureVersion"){throw 'package mismatch'}; [pscustomobject]@{Ready=$true;PackageFullName=$ExpectedPackageFullName} }
+'@ | Set-Content -LiteralPath (Join-Path $fixtureScripts 'Wait-CodexPackageReady.ps1') -Encoding UTF8
 $resources=Join-Path $root 'package\app\resources'
 [IO.Directory]::CreateDirectory($resources) | Out-Null
 [IO.Directory]::CreateDirectory((Join-Path $root 'home')) | Out-Null
