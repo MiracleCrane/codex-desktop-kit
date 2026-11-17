@@ -33,6 +33,12 @@ function Expect-Failure([scriptblock]$Action,[string]$Pattern) {
 Save-Profile
 $a=& $scriptPath -ConfigPath $config -PrepareOnly
 if($a.Status -ne 'prepared-not-launched'){throw 'Preparation result missing'}
+$exact=& $scriptPath -ConfigPath $config -PrepareOnly -ExpectedPackageFullName "fixture-$global:fixtureVersion"
+if($exact.PackageFullName -ne "fixture-$global:fixtureVersion"){throw 'Exact package selection failed'}
+Expect-Failure { & $scriptPath -ConfigPath $config -PrepareOnly -ExpectedPackageFullName 'not-this-package' } 'not installed'
+Expect-Failure { & $scriptPath -ConfigPath $config -ExpectedPackageFullName "fixture-$global:fixtureVersion" } 'prepare-only'
+$resolver = & (Join-Path $PSScriptRoot '..\scripts\Prepare-DispatcherBackend.ps1') -ProfilePath $config -ExpectedPackageFullName "fixture-$global:fixtureVersion" | ConvertFrom-Json
+if($resolver.BackendPath -ne $a.BackendPath){throw 'Resolver chose wrong backend'}
 $original=& $scriptPath -ConfigPath $config -PrepareOnly
 if($original.BackendPath -ne $a.BackendPath){throw 'Cache not reused'}
 $global:fixtureVersion='2.0.0.0'
