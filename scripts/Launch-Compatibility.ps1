@@ -117,7 +117,7 @@ if (!$PackageWorker) {
     $null = Get-Command Invoke-CommandInDesktopPackage -ErrorAction Stop
     $appManifest = Get-AppxPackageManifest -Package $package.PackageFullName
     $entries = @($appManifest.Package.Applications.Application | Where-Object {
-        ([string]$_.Executable).Replace('/','\\') -ieq 'app\\ChatGPT.exe'
+        ([string]$_.Executable).Replace('/','\') -ieq 'app\ChatGPT.exe'
     })
     if ($entries.Count -ne 1) { throw 'Cannot identify the installed desktop application entry.' }
     $quote = { param([string]$s) "'" + $s.Replace("'","''") + "'" }
@@ -125,7 +125,7 @@ if (!$PackageWorker) {
         (& $quote ([IO.Path]::GetFullPath($ConfigPath))) + ' -Mode ' +
         (& $quote $Mode) + ' -PackageWorker'
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-    $shell = Join-Path $env:SystemRoot 'System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+    $shell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     # Environment is set by the worker below, since the package activation API
     # does not reliably inherit the calling shell's process environment.
     Invoke-CommandInDesktopPackage -PackageFamilyName $package.PackageFamilyName -AppId ([string]$entries[0].Id) -Command $shell -Args ("-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + $encoded) -PreventBreakaway
