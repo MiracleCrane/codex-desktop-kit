@@ -97,7 +97,12 @@ try {
         throw 'Installed package changed during preparation; retry after update completes.'
     }
     $manifest = [ordered]@{Version=$version;PackageFullName=$package.PackageFullName;DesktopPath=$app;BackendPath=(Join-Path $destination 'tran.exe');Files=$files;PreparedAt=(Get-Date -Format o)}
-    Write-AtomicJson $manifest (Join-Path $cache 'current.json')
+    $manifestPath = Join-Path $cache 'current.json'
+    $old = if (Test-Path -LiteralPath $manifestPath) { Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
+    # Preserve the prior-version manifest across repeated launches of the same version.
+    if (!$old -or $old.BackendPath -ne $manifest.BackendPath -or $old.DesktopPath -ne $manifest.DesktopPath) {
+        Write-AtomicJson $manifest $manifestPath
+    }
 } finally { $lock.Dispose() }
 if ($PrepareOnly) { [pscustomobject]@{Status='prepared-not-launched';Version=$version;BackendPath=$manifest.BackendPath}; return }
 # Check again after preparation; never kill another instance that appeared meanwhile.
