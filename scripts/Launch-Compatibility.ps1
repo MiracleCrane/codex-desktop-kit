@@ -111,6 +111,58 @@ if (@(Get-Process -Name ChatGPT,codex,tran -ErrorAction SilentlyContinue).Count 
     throw 'Another Codex instance appeared during preparation. No process was stopped.'
 }
 
+
+# Optional workstation gateway lifecycle. No effect on default/other profiles.
+# Preparation never starts it; only the outer launch does, outside the MSIX job.
+if (!$PackageWorker -and $c.PSObject.Properties['Gateway'] -and $c.Gateway.Enabled -eq $true) {
+    $gateway = $c.Gateway
+    $gatewayPath = [string]$gateway.ExecutablePath
+    if (![IO.Path]::IsPathRooted($gatewayPath) -or !(Test-Path -LiteralPath $gatewayPath -PathType Leaf)) {
+        throw 'Configured gateway executable does not exist at an absolute path.'
+    }
+    $gatewayPath = [IO.Path]::GetFullPath($gatewayPath)
+    $port = [int]$gateway.Port
+    if ($port -lt 1 -or $port -gt 65535) { throw 'Invalid gateway port.' }
+    $timeout = 20
+    if ($gateway.PSObject.Properties['TimeoutSeconds']) { $timeout = [int]$gateway.TimeoutSeconds }
+    if ($timeout -lt 1 -or $timeout -gt 120) { throw 'Gateway timeout must be 1..120 seconds.' }
+    $receipt = Join-Path $cache 'gateway-status.json'
+    try {
+        $existing = @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+            $_.ExecutablePath -and [string]$_.ExecutablePath -ieq $gatewayPath
+        })
+        if (!$existing.Count) {
+            $start = [Diagnostics.ProcessStartInfo]::new()
+            $start.FileName = $gatewayPath
+            $start.WorkingDirectory = Split-Path -Parent $gatewayPath
+            $start.Arguments = 'tray'
+            $start.UseShellExecute = $false
+            $start.CreateNoWindow = $true
+            $start.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+            $null = [Diagnostics.Process]::Start($start)
+        }
+        $deadline = [DateTime]::UtcNow.AddSeconds($timeout)
+        $ownerId = $null
+        do {
+            $listeners = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+                Where-Object { $_.LocalAddress -in @('127.0.0.1','0.0.0.0','::','::1') })
+            foreach ($listener in $listeners) {
+                $owner = Get-CimInstance Win32_Process -Filter ("ProcessId=" + [int]$listener.OwningProcess) -ErrorAction Stop
+                if ($owner -and $owner.ExecutablePath -and [string]$owner.ExecutablePath -ieq $gatewayPath) {
+                    $ownerId = [int]$listener.OwningProcess; break
+                }
+            }
+            if ($null -ne $ownerId) { break }
+            Start-Sleep -Milliseconds 250
+        } while ([DateTime]::UtcNow -lt $deadline)
+        if ($null -eq $ownerId) { throw 'Expected gateway did not own its configured listening port before timeout.' }
+        Write-AtomicJson ([ordered]@{Status='gateway-listening';ProcessId=$ownerId;Port=$port;Time=(Get-Date -Format o);ModelVerified=$false}) $receipt
+    } catch {
+        Write-AtomicJson ([ordered]@{Status='gateway-not-ready';Time=(Get-Date -Format o);Message=$_.Exception.Message}) $receipt
+        throw
+    }
+}
+
 # MSIX identity is required by native package/update APIs. Direct Process.Start from
 # an unpackaged shell loses it. Enter the installed package before creating the app.
 if (!$PackageWorker) {
