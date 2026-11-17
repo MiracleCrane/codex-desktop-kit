@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory)][string]$ConfigPath,
     [ValidateSet('Compatibility','Original')][string]$Mode='Compatibility',
     [switch]$PrepareOnly,
-    [switch]$PackageWorker
+    [switch]$PackageWorker,
+    [string]$ExpectedPackageFullName
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
@@ -42,7 +43,19 @@ $active = @(Get-Process -Name ChatGPT,codex,tran -ErrorAction SilentlyContinue)
 if ($active.Count -gt 0 -and !$PrepareOnly) {
     throw 'Codex/backend is already running. Keep using it, or exit normally before launching. No process was stopped.'
 }
+. (Join-Path $PSScriptRoot 'Wait-CodexPackageReady.ps1')
+$readyPackage = $null
+if (!$PrepareOnly) {
+    if ($PackageWorker) {
+        if (!$ExpectedPackageFullName) { throw 'Package worker requires the original expected package identity.' }
+        $readyPackage = Assert-CodexPackageReady -ExpectedPackageFullName $ExpectedPackageFullName
+    } else {
+        $readyPackage = Wait-CodexPackageReady
+        $ExpectedPackageFullName = $readyPackage.PackageFullName
+    }
+}
 $packages = @(Get-AppxPackage -Name OpenAI.Codex | Sort-Object { [version]$_.Version } -Descending)
+if ($ExpectedPackageFullName) { $packages = @($packages | Where-Object { $_.PackageFullName -ceq $ExpectedPackageFullName }) }
 if ($packages.Count -eq 0) { throw 'Official Codex package is not installed for this user.' }
 $package = $packages[0]
 $app = Join-Path $package.InstallLocation 'app\ChatGPT.exe'
@@ -175,11 +188,12 @@ if (!$PackageWorker) {
     $quote = { param([string]$s) "'" + $s.Replace("'","''") + "'" }
     $command = '& ' + (& $quote $PSCommandPath) + ' -ConfigPath ' +
         (& $quote ([IO.Path]::GetFullPath($ConfigPath))) + ' -Mode ' +
-        (& $quote $Mode) + ' -PackageWorker'
+        (& $quote $Mode) + ' -PackageWorker -ExpectedPackageFullName ' + (& $quote $package.PackageFullName)
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
     $shell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     # Environment is set by the worker below, since the package activation API
     # does not reliably inherit the calling shell's process environment.
+    $null = Assert-CodexPackageReady -ExpectedPackageFullName $package.PackageFullName
     Invoke-CommandInDesktopPackage -PackageFamilyName $package.PackageFamilyName -AppId ([string]$entries[0].Id) -Command $shell -Args ("-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + $encoded) -PreventBreakaway
     [pscustomobject]@{Status='package-launch-requested';Mode=$Mode;Version=$version}
     return
@@ -224,6 +238,7 @@ $psi.EnvironmentVariables['CODEX_HOME'] = [string]$c.CodexHome
 $psi.EnvironmentVariables.Remove('CODEX_APP_RUNTIME_CLI_PATH')
 if ($Mode -eq 'Compatibility') { $psi.EnvironmentVariables['CODEX_CLI_PATH'] = $manifest.BackendPath }
 else { $psi.EnvironmentVariables.Remove('CODEX_CLI_PATH') }
+$null = Assert-CodexPackageReady -ExpectedPackageFullName $package.PackageFullName
 $p = [Diagnostics.Process]::Start($psi)
 # This is a launch request, not proof of remote connection, model response, or performance.
 [pscustomobject]@{Status='launch-requested';Mode=$Mode;Version=$version;ProcessId=$p.Id}
