@@ -13,7 +13,7 @@ $fixtureScripts=Join-Path $root 'launcher'
 Copy-Item -LiteralPath $scriptPath -Destination (Join-Path $fixtureScripts 'Launch-Compatibility.ps1')
 $scriptPath=Join-Path $fixtureScripts 'Launch-Compatibility.ps1'
 @'
-function Wait-CodexPackageReady { [pscustomobject]@{Ready=$true;PackageFullName="fixture-$global:fixtureVersion"} }
+function Get-CodexReadyPackage { [pscustomobject]@{Ready=$true;PackageFullName="fixture-$global:fixtureVersion"} }
 function Assert-CodexPackageReady { param($ExpectedPackageFullName) if($ExpectedPackageFullName -ne "fixture-$global:fixtureVersion"){throw 'package mismatch'}; [pscustomobject]@{Ready=$true;PackageFullName=$ExpectedPackageFullName} }
 '@ | Set-Content -LiteralPath (Join-Path $fixtureScripts 'Wait-CodexPackageReady.ps1') -Encoding UTF8
 $resources=Join-Path $root 'package\app\resources'
