@@ -25,6 +25,12 @@ The selected shortcut may be named **Tran (Codex7897)**. Back up its previous .l
 
 This isolated entrypoint does not automatically run the kit's optional Magpie or Orb hooks. Deployment must preserve and separately validate selected hooks rather than discard them, stack wrappers, or claim equivalent behavior. Do not replace an integrated shortcut until these choices are reconciled.
 
+## Package identity and child environment
+
+The entrypoint activates a hidden Windows PowerShell worker with Invoke-CommandInDesktopPackage and PreventBreakaway. The worker verifies its native package identity matches the selected installed version before launching the desktop. Proxy and backend environment overrides are set inside that worker for the desktop child; no global environment is changed. Chromium receives explicit proxy arguments.
+
+PreventBreakaway affects the launched process tree. Validate terminal/tools and remote execution as well as native package/updater APIs before calling the deployment accepted. It does not prove Store connectivity or that an update can install. Package activation only reports package-launch-requested; do not equate this with a working desktop or remote connection.
+
 ## Update behavior
 
 Each launch inventories the currently registered official package rather than hard-coding a WindowsApps version. Valid OpenAI signatures are required for the desktop and backend. The backend plus configured helpers are copied to a new version-and-content-addressed cache, verified against source SHA-256 values, and only then recorded in current.json. Previous manifest and prior caches remain. No running cached executable is overwritten; no old desktop is automatically paired with a new backend.
