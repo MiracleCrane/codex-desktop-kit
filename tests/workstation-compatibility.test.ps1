@@ -18,8 +18,8 @@ $global:fixtureActive=$false
 function Get-AppxPackage { param($Name) [pscustomobject]@{Version=$global:fixtureVersion;InstallLocation=(Join-Path $root 'package');PackageFullName="fixture-$global:fixtureVersion";PackageFamilyName="fixture-family"} }
 $global:fixturePackageLaunch=$null
 function Get-AppxPackageManifest { param($Package) [pscustomobject]@{Package=[pscustomobject]@{Applications=[pscustomobject]@{Application=@([pscustomobject]@{Executable='app\ChatGPT.exe';Id='App'})}}} }
-function Invoke-CommandInDesktopPackage { param($PackageFamilyName,$AppId,$Command,$Args,[switch]$PreventBreakaway)
-    $global:fixturePackageLaunch=@{Family=$PackageFamilyName;AppId=$AppId;Command=$Command;Arguments=$Args;PreventBreakaway=[bool]$PreventBreakaway}
+function Invoke-CommandInDesktopPackage { param($PackageFamilyName,$AppId,$Command,[Alias('Args')][string]$ArgumentString,[switch]$PreventBreakaway)
+    $global:fixturePackageLaunch=@{Family=$PackageFamilyName;AppId=$AppId;Command=$Command;Arguments=$ArgumentString;PreventBreakaway=[bool]$PreventBreakaway}
 }
 function Get-AuthenticodeSignature { param($LiteralPath) [pscustomobject]@{Status=$global:fixtureSignature;SignerCertificate=[pscustomobject]@{Subject='CN=OpenAI OpCo LLC, O=OpenAI OpCo LLC'}} }
 function Get-Process { param($Name,$ErrorAction) if($global:fixtureActive){[pscustomobject]@{Id=1}} }
