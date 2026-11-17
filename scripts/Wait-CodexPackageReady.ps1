@@ -11,7 +11,8 @@ function Get-CodexDeploymentSnapshot {
     $deployment = [bool]$status.DeploymentInProgress
     $servicing = [bool]$status.Servicing
     $ok = [bool]$status.VerifyIsOK()
-    [pscustomobject]@{PackageFullName=[string]$package.Id.FullName;Ready=(!$deployment -and !$servicing -and $ok);Reason=if($deployment){'deployment-in-progress'}elseif($servicing){'servicing'}elseif(!$ok){'not-healthy'}else{'ready'}}
+    $partial = [bool]$status.IsPartiallyStaged
+    [pscustomobject]@{PackageFullName=[string]$package.Id.FullName;Ready=(!$deployment -and !$servicing -and !$partial -and $ok);Reason=if($deployment){'deployment-in-progress'}elseif($servicing){'servicing'}elseif($partial){'partially-staged'}elseif(!$ok){'not-healthy'}else{'ready'}}
 }
 function Assert-CodexPackageReady {
     param([Parameter(Mandatory)][string]$ExpectedPackageFullName,
