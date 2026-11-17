@@ -5,6 +5,8 @@ description: Install, inspect, update or restore the Windows Codex Desktop Kit p
 
 # Codex Desktop Kit
 
+Only for an explicitly opted-in workstation compatibility profile, read [workstation compatibility](docs/workstation-compatibility.md). Do not apply that branch-specific profile to ordinary or other-machine installations. Source preparation, local deployment and live acceptance are separate.
+
 Read the matching release's [installation guide](docs/installation.md) and [proxy/acceptance boundaries](docs/proxy-and-acceptance.md). Discover the user's actual proxy, Codex home, installed receipt and selected shortcuts before changing them.
 
 For installation use `bootstrap.ps1` or `install.ps1`; for existing installs use the recorded package's `Test-Kit.ps1`, `update.ps1`, `restore.ps1` or `uninstall.ps1`. Runtime and component versions are pinned. Preserve existing settings and external work; a changed owned block/shortcut requires inspection, not force-overwrite.
