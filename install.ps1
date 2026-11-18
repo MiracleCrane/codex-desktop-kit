@@ -21,7 +21,7 @@ if(-not $ProxyUri){
     $answer=Read-Host '本地 HTTP/mixed 代理端口或 URI（回车使用 7897）'
     if(-not $answer){$answer='7897'}
     $ProxyUri=if($answer -match '^\d+$'){"http://127.0.0.1:$answer"}else{$answer}
-    if(-not $WithQuotaOrb){$WithQuotaOrb=(Read-Host '安装额度悬浮球？y/N') -match '^(y|yes)$'}
+    # Quota Orb is opt-in only; preserve an explicit -WithQuotaOrb selection.
     if(-not $WithBridge){$WithBridge=(Read-Host '安装可选传输桥接？y/N') -match '^(y|yes)$'}
 }
 $ProxyUri=$ProxyUri.TrimEnd('/')

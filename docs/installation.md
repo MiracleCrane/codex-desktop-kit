@@ -2,15 +2,18 @@
 
 ## 安装入口
 
+Quota Orb 默认关闭，交互式入口不再主动询问安装悬浮球。只有显式传入 `-WithQuotaOrb` 才选装并自动启动；该参数与手动快捷方式能力保持不变。使用 Magpie 的用户可在 Magpie 中开启额度显示，套件不会修改它的设置。更新既有安装仍保留原组件选择，不会静默关闭、删除或停止现有悬浮球。
+
+
 普通安装：下载固定 Release，解压后运行 `Install.cmd`。系统自带 Windows PowerShell 5.1 负责引导；合适的运行时不存在时才下载到套件目录。运行时来源和摘要固定在 `runtimes.json`，组件固定在 `components.json`。下载始终走输入的本机代理，保留 TLS 校验，失败重试有上限，完整性校验失败不会执行。
 
 系统执行策略阻止脚本时遵守设备策略；安装器不会关闭执行策略或提升权限。Windows x64、官方 Codex Desktop、.NET Framework 4.8 与已运行的 HTTP/mixed 代理是前提。高级命令入口要求 PowerShell 7.2+、Python 3.11+；桥接另需 Node.js 22+ 和 npm。
 
 ```powershell
-./bootstrap.ps1 -ProxyUri 'http://127.0.0.1:7897' -WithQuotaOrb -WithBridge
+./bootstrap.ps1 -ProxyUri 'http://127.0.0.1:7897' -WithBridge
 ./install.ps1 -Destination $directory -ProxyUri $proxyUri `
   -CodexHome $actualCodexHome -PythonPath $python -NodePath $node `
-  -WithBridge -WithQuotaOrb -ShortcutPath $selectedExistingLinks
+  -WithBridge -ShortcutPath $selectedExistingLinks
 ```
 
 `-NoShortcuts` 可用于独立集成测试，禁止同时传 `-ShortcutPath`。默认新建桌面和开始菜单的 `Codex (Proxy)`；显式选定既有入口时，保存精确备份再切换。配置、收据、日志与运行时必须位于源码、Skill 发现目录和同步目录之外。

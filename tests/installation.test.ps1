@@ -20,6 +20,10 @@ if($NodePath){$args.NodePath=$NodePath}
 try{
     & (Join-Path $root 'install.ps1') @args
     $first=Get-Content -LiteralPath $receiptPath -Raw|ConvertFrom-Json
+    if(-not $WithComponents){
+        $launch=Get-Content -LiteralPath $first.LaunchConfig -Raw|ConvertFrom-Json
+        if($first.QuotaDestination -or $launch.QuotaOrbPath -or (Test-Path -LiteralPath (Join-Path $WorkDirectory 'Quota Orb.lnk'))){throw 'Default install unexpectedly enabled Quota Orb.'}
+    }
     if((Get-KitShortcut $linkPath).Target -ne $first.Launcher){throw 'Kit is not the direct shortcut owner.'}
     if($WithComponents){$manual=Get-KitShortcut (Join-Path $WorkDirectory 'Quota Orb.lnk');if(-not $manual -or $manual.Arguments -notmatch '--toggle-orb$'){throw 'Manual quota toggle is missing.'}}
     if((Get-Content -LiteralPath $envFile -Raw) -notmatch 'corp.internal'){throw 'Intranet bypass lost.'}

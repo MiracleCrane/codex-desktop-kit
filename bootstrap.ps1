@@ -16,7 +16,7 @@ if(-not $ProxyUri){
     $answer=Read-Host 'Local HTTP/mixed proxy port or URI [7897]'
     if(-not $answer){$answer='7897'}
     $ProxyUri=if($answer -match '^\d+$'){"http://127.0.0.1:$answer"}else{$answer}
-    $WithQuotaOrb=(Read-Host 'Install optional Quota Orb? y/N') -match '^(y|yes)$'
+    # Quota Orb is opt-in only; preserve an explicit -WithQuotaOrb selection.
     $WithBridge=(Read-Host 'Install optional transport bridge? y/N') -match '^(y|yes)$'
 }
 $proxy=[uri]$ProxyUri
