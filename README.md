@@ -10,7 +10,7 @@
 
 此默认只适用于新的安装选择。更新会保留既有组件选择，不会删除悬浮球、终止进程或自动改写已有安装。已安装用户请先按安装文档核对所属入口，不要为此直接卸载组件。
 
-当前 `main` 的安装器尚未包含其他分支的 Magpie 网关启动集成：它不能负责启动 Magpie，已有本地模型端点仍会按原保护逻辑拒绝安装。这里的额度显示建议不代表已合入 Magpie 或公司工作站兼容功能。
+本版本包含通用 Magpie 启动和显式重连接入，保留既有模型与代理设置；不包含公司工作站专属兼容配置。
 ## 安装使用
 
 1. 启动你的代理客户端，记下 HTTP/mixed 端口。
@@ -19,6 +19,8 @@
 4. 安装完成后，正常退出 Codex，再通过桌面或开始菜单的 **Codex (Proxy)** 打开。
 
 选装悬浮球时，同目录还会提供 **Quota Orb** 手动开关；从其他入口打开 Codex 后，也可以手动开关球。
+
+悬浮球默认锁定并覆盖 Codex 官方额度圆环，持续显示百分比；右键可解锁拖动或还原默认位置。已有大小选择和大小调节功能保留。
 
 安装器优先复用合适的 PowerShell、Python；选择桥接时还会检查 Node.js。缺少的运行时从官方固定地址下载到套件目录，并核对固定 SHA-256，不修改系统 PATH。默认目录是 `%LOCALAPPDATA%\Programs\CodexDesktopKit`。
 
@@ -32,6 +34,22 @@
 
 ## 三个项目怎样配合
 
+### 已使用 Magpie
+
+先在 Magpie 中配置账号、供应商和 Codex 接入，再安装网关启动模式：
+
+```powershell
+./install.ps1 -ProxyUri $localProxy -CodexHome $actualCodexHome `
+  -MagpiePath $magpieExecutable -MagpieBaseUrl $configuredCodexBaseUrl `
+  -ShortcutPath $existingLinks
+```
+
+`bootstrap.ps1` 同样接受两个 Magpie 参数。Magpie 模式与 `-WithBridge` 互斥。快捷方式先检查代理与保存的模型入口，复用已就绪的 Magpie，或以托盘模式启动它并等待网关，然后激活 Codex。无需额外登录自启任务；模型、供应商、回退和登录态仍由 Magpie 管理。
+
+网关未就绪或入口已被修改时停止本次启动，不改模型设置、不切回桥接。旧套件改变模式前按[迁移说明](docs/installation.md#迁移到-magpie-模式)解除原集成。桥接文件可以保留，日常入口不再依赖它。
+
+若希望“断开 Codex 连接并退出”之后也能一键接回，安装时加 `-ReconnectMagpie`（0.1.6 起）。只有 Codex 全部退出后才执行重连；正在运行的聊天不会被启动器强行重接。普通退出无需重连。
+
 | 项目 | 职责 |
 | --- | --- |
 | 本项目 | 组合安装、代理配置、最终快捷方式、版本清单、集成验收 |
@@ -39,6 +57,8 @@
 | [Codex Transport Bridge](https://github.com/MiracleCrane/codex-transport-bridge) | 模型传输桥接、独立安装、连接与配置回退 |
 
 套件引用组件的固定 Release 和校验值，不复制组件源码。套件模式只由一个启动器打开 Codex，另外启动所选组件；组件不会再包装套件的快捷方式。悬浮球失败不阻挡 Codex。
+
+Codex 更新后的首次启动可能较慢。套件先发出正常启动请求，再在最多 120 秒的启动观察期内，等匹配应用身份的主窗口稳定出现后开启球；期间窗口或进程被替换时会再次幂等启动球。观察结束后启动器退出，不增加永久监听；手动开关仍直接切换球。
 
 ## 检查、更新和卸载
 

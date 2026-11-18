@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "bridge": {
     "id": "codex-transport-bridge",
-    "version": "1.5.1",
-    "url": "https://github.com/MiracleCrane/codex-transport-bridge/releases/download/v1.5.1/codex-transport-bridge-1.5.1-windows.zip",
-    "sha256": "8fcf6a8cfc2886262821655f161086900fb8bc38de7b5875206cca93a935f837"
+    "version": "1.5.2",
+    "url": "https://github.com/MiracleCrane/codex-transport-bridge/releases/download/v1.5.2/codex-transport-bridge-1.5.2-windows.zip",
+    "sha256": "6d55a0dd59319ea403a98f787146939fcf6da11dd5b94021e0d1f3790f15c708"
   },
   "quotaOrb": {
     "id": "quota-orb",
-    "version": "0.1.10",
-    "url": "https://github.com/MiracleCrane/quota-orb/releases/download/v0.1.10/quota-orb-0.1.10-windows.zip",
-    "sha256": "96d559bc6ec5871947b244376fb069a1268fc98c28f00d2c073192627b63f4e4"
+    "version": "0.1.12",
+    "url": "https://github.com/MiracleCrane/quota-orb/releases/download/v0.1.12/quota-orb-0.1.12-windows.zip",
+    "sha256": "06f93db7d9d6db8359cf85f567b76d4b91570720306c809a0022567777bfcea1"
   }
 }

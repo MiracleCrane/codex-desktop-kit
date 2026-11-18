@@ -31,7 +31,7 @@ README 面向使用者，提供用途、安装、常用操作与限制。docs �
 
 ## 现有组件接口
 
-- [桥接 1.5.1 契约](https://github.com/MiracleCrane/codex-transport-bridge/blob/v1.5.1/docs/component-contract.md)：`-ComponentOnly`、实例健康、收据地址、恢复事务。
+- [桥接 1.5.2 契约](https://github.com/MiracleCrane/codex-transport-bridge/blob/v1.5.2/docs/component-contract.md)：`-ComponentOnly`、实例健康、收据地址、恢复事务。
 - [悬浮球 0.1.10 契约](https://github.com/MiracleCrane/quota-orb/blob/v0.1.10/docs/component-contract.md)：`-NoShortcuts`、`--ensure-running`、`--exit`、JSON 状态和组件卸载。
 
 这些链接用于当前套件固定版本；更新组件时同步更新此处引用。
