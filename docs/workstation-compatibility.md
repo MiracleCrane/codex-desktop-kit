@@ -31,6 +31,16 @@ Keep the daily shortcut and the explicit compatibility fallback clearly distingu
 
 By default this entrypoint starts neither Magpie nor Orb. On the selected workstation only, an explicit local Gateway object may set Enabled=true, ExecutablePath to the already-installed approved Magpie executable, Port to its configured loopback gateway port, and TimeoutSeconds (1..120, default 20). Normal launch reuses the exact executable path or starts it with the fixed tray argument, then waits for a listening port owned by that executable. PrepareOnly never starts the gateway. gateway-status.json records readiness/failure without claiming successful model traffic. The launcher does not install, update, authenticate or reconfigure the gateway. Orb is not launched: preserve that separately only after its selected lifecycle is verified. This gateway addition is a review change until isolated and real startup acceptance pass.
 
+## Optional startup window
+
+The normal launch command stays quiet. For a native Windows startup card, choose the optional wrapper instead:
+
+```powershell
+.\scripts\Start-CodexWithProgress.ps1 -ConfigPath "<local-profile>" -Mode Original
+```
+
+The wrapper takes the same profile and mode as the launcher. It does not change package or gateway behavior. The card uses an indeterminate activity indicator, never guessed percentages. It closes as soon as Windows accepts the package handoff, which does not confirm that the app finished opening. If the launcher itself fails, the card directs you to its normal error output. Closing the card does not cancel startup. There is no visual delay added to launch. If the viewer cannot run, the launcher still works normally; `-PrepareOnly` skips the viewer entirely.
+
 ## Package identity and child environment
 
 The entrypoint activates a hidden Windows PowerShell worker with Invoke-CommandInDesktopPackage and PreventBreakaway. The worker verifies its native package identity matches the selected installed version before launching the desktop. Proxy and backend environment overrides are set inside that worker for the desktop child; no global environment is changed. Chromium receives explicit proxy arguments.
