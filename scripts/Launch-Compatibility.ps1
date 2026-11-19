@@ -63,9 +63,11 @@ $resources = Join-Path $package.InstallLocation 'app\resources'
 $source = Join-Path $resources 'codex.exe'
 Assert-Official $app
 Assert-Official $source
-$sourceHash = Get-Hash $source
 $version = [string]$package.Version
 $cache = [IO.Path]::GetFullPath([string]$c.CacheRoot)
+# Original mode uses the installed backend, without preparing a compatibility cache.
+if ($Mode -eq 'Compatibility' -or $PrepareOnly) {
+$sourceHash = Get-Hash $source
 [IO.Directory]::CreateDirectory($cache) | Out-Null
 # An exclusive per-cache lock prevents overlapping preparations.
 $lock = [IO.File]::Open((Join-Path $cache 'prepare.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
@@ -118,6 +120,7 @@ try {
         Write-AtomicJson $manifest $manifestPath
     }
 } finally { $lock.Dispose() }
+}
 if ($PrepareOnly) { [pscustomobject]@{Status='prepared-not-launched';Version=$version;BackendPath=$manifest.BackendPath}; return }
 # Check again after preparation; never kill another instance that appeared meanwhile.
 if (@(Get-Process -Name ChatGPT,codex,tran -ErrorAction SilentlyContinue).Count -gt 0) {
@@ -139,6 +142,8 @@ if (!$PackageWorker -and $c.PSObject.Properties['Gateway'] -and $c.Gateway.Enabl
     $timeout = 20
     if ($gateway.PSObject.Properties['TimeoutSeconds']) { $timeout = [int]$gateway.TimeoutSeconds }
     if ($timeout -lt 1 -or $timeout -gt 120) { throw 'Gateway timeout must be 1..120 seconds.' }
+    # Original mode may not have created CacheRoot; only the enabled gateway needs a receipt.
+    [IO.Directory]::CreateDirectory($cache) | Out-Null
     $receipt = Join-Path $cache 'gateway-status.json'
     try {
         $existing = @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {

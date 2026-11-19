@@ -72,6 +72,48 @@ if($request.Status -ne 'package-launch-requested' -or !$global:fixturePackageLau
 $encoded=($global:fixturePackageLaunch.Arguments -split ' ')[-1]
 $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
 if($decoded -notmatch '-PackageWorker' -or $decoded -notmatch [regex]::Escape($config)){throw 'Worker command lost configuration'}
+# Original dispatch must not read helpers, hash/copy files, or create a cache.
+$compatCache=$c.CacheRoot
+$c.CacheRoot=Join-Path $root 'original-no-cache'
+$c.AuxiliaryFiles=@('missing.exe')
+Save-Profile
+$request=& $scriptPath -ConfigPath $config -Mode Original
+if($request.Mode -ne 'Original' -or (Test-Path -LiteralPath $c.CacheRoot)){throw 'Original prepared a compatibility cache'}
+$encoded=($global:fixturePackageLaunch.Arguments -split ' ')[-1]
+if([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded)) -notmatch '-Mode ''Original'''){throw 'Original mode not passed to worker'}
+Expect-Failure { & $scriptPath -ConfigPath $config -Mode Original -PrepareOnly } 'missing'
+$global:fixtureSignature='HashMismatch'
+Expect-Failure { & $scriptPath -ConfigPath $config -Mode Original } 'signature'
+$global:fixtureSignature='Valid'
+# Existing fake gateway is always returned: no real Process.Start or network call.
+$c.CacheRoot=Join-Path $root 'original-gateway-success'
+$c.Gateway=@{Enabled=$true;ExecutablePath=(Join-Path $resources 'helper.exe');Port=3425;TimeoutSeconds=1}
+Save-Profile
+$global:fixtureGatewayFailure=$false
+function Get-CimInstance { param($ClassName,$Filter,$ErrorAction) [pscustomobject]@{ExecutablePath=$c.Gateway.ExecutablePath;ProcessId=4242} }
+function Get-NetTCPConnection { param($LocalPort,$State,$ErrorAction)
+    if($global:fixtureGatewayFailure){throw 'fixture gateway probe failed'}
+    [pscustomobject]@{LocalAddress='127.0.0.1';OwningProcess=4242}
+}
+& $scriptPath -ConfigPath $config -Mode Original | Out-Null
+$receipt=Get-Content (Join-Path $c.CacheRoot 'gateway-status.json') -Raw | ConvertFrom-Json
+if($receipt.Status -ne 'gateway-listening' -or $receipt.ModelVerified -ne $false){throw 'Fresh Original gateway receipt missing'}
+if(@(Get-ChildItem -LiteralPath $c.CacheRoot).Count -ne 1){throw 'Gateway created unexpected preparation files'}
+$c.CacheRoot=Join-Path $root 'original-gateway-failure'
+Save-Profile
+$global:fixtureGatewayFailure=$true
+Expect-Failure { & $scriptPath -ConfigPath $config -Mode Original } 'fixture gateway probe failed'
+$receipt=Get-Content (Join-Path $c.CacheRoot 'gateway-status.json') -Raw | ConvertFrom-Json
+if($receipt.Status -ne 'gateway-not-ready'){throw 'Fresh Original failure receipt missing'}
+$c.Gateway.Enabled=$false
+$c.CacheRoot=Join-Path $root 'original-disabled-gateway'
+Save-Profile
+& $scriptPath -ConfigPath $config -Mode Original | Out-Null
+if(Test-Path -LiteralPath $c.CacheRoot){throw 'Disabled gateway created cache'}
+$c.Remove('Gateway')
+$c.CacheRoot=$compatCache
+$c.AuxiliaryFiles=@('helper.exe')
+Save-Profile
 [IO.File]::WriteAllText($b.BackendPath,'tampered fixture')
 Expect-Failure { & $scriptPath -ConfigPath $config -PrepareOnly } 'integrity mismatch'
-"PASS: parse, prepare, cache reuse, version isolation, previous manifest, opt-in, machine scope, signature rejection, missing helper, active-process guard, package activation dispatch, worker command, tamper rejection. Fixture retained at $root"
+"PASS: parse, prepare, cache reuse, version isolation, previous manifest, opt-in, machine scope, signature rejection, missing helper, active-process guard, package activation dispatch, worker command, tamper rejection, Original no-preparation, Original PrepareOnly, Original signature rejection, fresh gateway success/failure receipts, disabled gateway. Fixture retained at $root"

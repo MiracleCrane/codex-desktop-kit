@@ -6,7 +6,7 @@ The installed desktop stays unmodified. A byte-identical, signature-checked copy
 
 ## When to return to Original mode
 
-Keep the official bundled Codex backend as the day-to-day choice when normal use is responsive with it. Switch the daily shortcut to Original mode and retain the compatibility entry as an opt-in fallback. Original mode drops the backend override while preserving the configured Codex home, proxy and bypasses. Keep any separately configured gateway behavior unchanged.
+Keep the official bundled Codex backend as the day-to-day choice when normal use is responsive with it. Switch the daily shortcut to Original mode and retain the compatibility entry as an opt-in fallback. Original mode drops the backend override and skips compatibility-cache preparation while preserving the configured Codex home, proxy and bypasses. Keep any separately configured gateway behavior unchanged.
 
 To verify the switch, close Codex normally and use the updated shortcut. Check that the new desktop actually uses the bundled backend, that existing history and a fresh conversation work, and that its proxy and configured gateway still work. A shortcut change or warm activation does not verify a cold start. If lag returns, record the installed version and what reproduced it before reconsidering the fallback. A responsive test on one computer does not establish a product-wide fix.
 
@@ -39,7 +39,7 @@ PreventBreakaway affects the launched process tree. Validate terminal/tools and 
 
 ## Update behavior
 
-Each launch inventories the currently registered official package rather than hard-coding a WindowsApps version. Valid OpenAI signatures are required for the desktop and backend. The backend plus configured helpers are copied to a new version-and-content-addressed cache, verified against source SHA-256 values, and only then recorded in current.json. Previous manifest and prior caches remain. No running cached executable is overwritten; no old desktop is automatically paired with a new backend.
+Each launch inventories the currently registered official package rather than hard-coding a WindowsApps version. Valid OpenAI signatures are required for the desktop and backend. Compatibility mode and explicit PrepareOnly copy the backend plus configured helpers to a new version-and-content-addressed cache, verified against source SHA-256 values, and only then recorded in current.json. Previous manifest and prior caches remain. No running cached executable is overwritten; no old desktop is automatically paired with a new backend.
 
 No network downloads or package updates are performed. Changed layout, missing helper, signature failure or cache mismatch stops launch and preserves data. Preparation is not compatibility acceptance: after every desktop update verify history loading, model reply, tools, remote executor registration and performance. Downgrading the installed package must be explicit and consider data compatibility.
 
@@ -51,7 +51,7 @@ Initial implementation is a review branch, not a released kit version. Before de
 
 The agreed workflow is manual cold launch: after using Codex's own update UI, if it automatically opens a window, the user closes it normally and then clicks the selected launcher; if no window opens, the user clicks the launcher directly. This entrypoint never closes an existing instance on the user's behalf. The experimental automatic dispatcher is not deployed or needed for this workflow.
 
-Before ordinary launch, a Windows PowerShell 5 worker reads the registered package's WinRT status once. DeploymentInProgress, Servicing, partial staging, unhealthy, unreadable or unknown status immediately stops this launch attempt and tells the user to retry after installation. It does not poll, sleep or wait for the updater. A healthy already-installed new package proceeds normally through matching-backend preparation. The exact full package name is passed to the package worker, which checks readiness and identity again; another fresh check is made just before process creation. PrepareOnly does not launch.
+Before ordinary launch, a Windows PowerShell 5 worker reads the registered package's WinRT status once. DeploymentInProgress, Servicing, partial staging, unhealthy, unreadable or unknown status immediately stops this launch attempt and tells the user to retry after installation. It does not poll, sleep or wait for the updater. A healthy already-installed new package proceeds with the bundled backend in Original mode or with matching-backend preparation in Compatibility mode. The exact full package name is passed to the package worker, which checks readiness and identity again; another fresh check is made just before process creation. PrepareOnly does not launch.
 
 This is an immediate readiness guard, not an atomic deployment lock. A download or handoff may leave the old registered package reporting healthy, and Windows may start another deployment after the final check. Without a reliable intended-version signal the launcher cannot prove that a newer planned update has completed. A rejected launch does not cancel installation or start a fallback old package.
 
