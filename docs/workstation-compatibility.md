@@ -4,6 +4,12 @@ This branch adds an **explicit opt-in profile for one selected workstation**. It
 
 The installed desktop stays unmodified. A byte-identical, signature-checked copy of its bundled backend is launched under a compatibility basename through CODEX_CLI_PATH. This does not disable monitoring, change system security, edit WindowsApps, migrate history, install services, or change system proxy/TUN settings. Do not infer unchanged monitoring coverage merely from unchanged settings.
 
+## When to return to Original mode
+
+Keep the official bundled Codex backend as the day-to-day choice when normal use is responsive with it. Switch the daily shortcut to Original mode and retain the compatibility entry as an opt-in fallback. Original mode drops the backend override while preserving the configured Codex home, proxy and bypasses. Keep any separately configured gateway behavior unchanged.
+
+To verify the switch, close Codex normally and use the updated shortcut. Check that the new desktop actually uses the bundled backend, that existing history and a fresh conversation work, and that its proxy and configured gateway still work. A shortcut change or warm activation does not verify a cold start. If lag returns, record the installed version and what reproduced it before reconsidering the fallback. A responsive test on one computer does not establish a product-wide fix.
+
 ## Local deployment
 
 Inspect the selected shortcut, original icon resource, kit receipt, optional Magpie/Orb choices, actual Codex home and proxy before deploying. Keep machine configuration and receipts/backups outside Git.
@@ -21,7 +27,7 @@ Run Windows PowerShell or PowerShell 7 with -NoProfile -File scripts/Launch-Comp
 
 PrepareOnly verifies/caches a version without closing or starting the application. Launch normally only after existing desktop/backend tasks have exited; omit PrepareOnly. Mode Original omits the backend override for the currently installed official desktop; it is not an application downgrade or database rollback.
 
-The selected shortcut may be named **Tran (Codex7897)**. Back up its previous .lnk and preserve the original icon resource. Do not rewrite unrelated shortcuts or add login startup. Only one operator owns shortcut/receipt edits.
+Keep the daily shortcut and the explicit compatibility fallback clearly distinguishable. Back up its previous .lnk and preserve the original icon resource. Do not rewrite unrelated shortcuts or add login startup. Only one operator owns shortcut/receipt edits.
 
 By default this entrypoint starts neither Magpie nor Orb. On the selected workstation only, an explicit local Gateway object may set Enabled=true, ExecutablePath to the already-installed approved Magpie executable, Port to its configured loopback gateway port, and TimeoutSeconds (1..120, default 20). Normal launch reuses the exact executable path or starts it with the fixed tray argument, then waits for a listening port owned by that executable. PrepareOnly never starts the gateway. gateway-status.json records readiness/failure without claiming successful model traffic. The launcher does not install, update, authenticate or reconfigure the gateway. Orb is not launched: preserve that separately only after its selected lifecycle is verified. This gateway addition is a review change until isolated and real startup acceptance pass.
 
