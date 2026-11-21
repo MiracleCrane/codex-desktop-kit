@@ -57,6 +57,7 @@ namespace CodexDesktopKit
     {
         private readonly Settings settings;
         private readonly JavaScriptSerializer json = new JavaScriptSerializer();
+        public LaunchProgress Progress { private get; set; }
         public Operations(Settings value) { settings = value; }
         public void Log(string category)
         {
@@ -69,6 +70,7 @@ namespace CodexDesktopKit
         }
         public bool ProxyReady()
         {
+            if (Progress != null) Progress.Report(LaunchStage.Proxy);
             Uri uri = new Uri(settings.ProxyUri);
             if (uri.Scheme != "http" || !uri.IsLoopback || uri.UserInfo.Length != 0 || uri.Port < 1)
                 throw new InvalidOperationException("代理地址应为本机 HTTP/mixed 端口，不含账号密码。");
@@ -97,6 +99,7 @@ namespace CodexDesktopKit
         }
         public bool BridgeReady()
         {
+            if (Progress != null) Progress.Report(LaunchStage.Bridge);
             try {
                 var r = Receipt();
                 if (!Equals(r["Mode"], "component") || !Equals(r["Status"], "enabled")) return false;
@@ -163,6 +166,7 @@ namespace CodexDesktopKit
         }
         public bool MagpieReady()
         {
+            if (Progress != null) Progress.Report(LaunchStage.Magpie);
             if (!MagpieStartup.Prepare(MagpieRouteMatches, settings.Magpie.ReconnectOnLaunch,
                 ClientsStoppedForMagpieReconnect,
                 () => {
@@ -222,12 +226,14 @@ namespace CodexDesktopKit
         }
         public void ActivateCodex()
         {
+            if (Progress != null) Progress.Report(LaunchStage.Opening);
             ConfigureProcessEnvironment();
             string args = "--proxy-server=\"" + settings.ProxyUri + "\" --proxy-bypass-list=\"" + settings.ProxyBypassList + "\"";
             var manager = (IApplicationActivationManager)new ApplicationActivationManager();
             uint pid;
             Marshal.ThrowExceptionForHR(manager.ActivateApplication(settings.Aumid, args, 0, out pid));
             Log("codex-activation-requested pid=" + pid);
+            if (Progress != null) Progress.Report(LaunchStage.Waiting);
         }
         public void StartQuotaOrb()
         {
@@ -265,7 +271,17 @@ namespace CodexDesktopKit
                     operations.ToggleQuotaOrb();
                     return 0;
                 }
-                int result = LaunchPlan.Run(operations, settings.Bridge != null, !String.IsNullOrEmpty(settings.QuotaOrbPath), settings.Magpie != null);
+                var windows = NativeHostWindows.ForApplication(settings.Aumid);
+                LaunchProgress progress = null;
+                try { progress = new LaunchProgress(() => windows.Read() != null); } catch { }
+                int result;
+                try {
+                    operations.Progress = progress;
+                    result = LaunchPlan.Run(operations, settings.Bridge != null, !String.IsNullOrEmpty(settings.QuotaOrbPath), settings.Magpie != null);
+                    if (progress != null) progress.WaitForHandoff(result == 0);
+                } finally {
+                    if (progress != null) progress.Dispose();
+                }
                 if (result == 2) MessageBox.Show("本地代理端口未就绪。请启动代理客户端的 HTTP/mixed 端口后重试；无需开启 TUN 或系统代理。", "Codex Desktop Kit");
                 if (result == 3) MessageBox.Show("桥接未就绪，连接配置需要检查。请运行 Test-Kit.ps1；现有聊天与用户配置已保留。", "Codex Desktop Kit");
                 if (result == 4) MessageBox.Show("Magpie 网关或模型入口未就绪。需要恢复接入时，请先完全退出 Codex 再用本快捷方式启动。请检查 Magpie 与 Test-Kit.ps1；没有自动切回桥接。", "Codex Desktop Kit");

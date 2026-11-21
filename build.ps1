@@ -7,7 +7,7 @@ if($output.StartsWith($PSScriptRoot.TrimEnd('\')+'\',[StringComparison]::Ordinal
 New-Item -ItemType Directory -Path $output -Force|Out-Null
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $sources=@(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File|ForEach-Object FullName)
-& $compiler /nologo /target:winexe /optimize+ /codepage:65001 /reference:System.Web.Extensions.dll /reference:System.Windows.Forms.dll "/out:$(Join-Path $output 'CodexDesktopKit.exe')" @sources
+& $compiler /nologo /target:winexe /optimize+ /codepage:65001 /reference:System.Web.Extensions.dll /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "/out:$(Join-Path $output 'CodexDesktopKit.exe')" @sources
 if($LASTEXITCODE -ne 0){throw 'Launcher compilation failed.'}
 if($Test){
     & $compiler /nologo /target:exe /optimize+ /codepage:65001 "/out:$(Join-Path $output 'LaunchTests.exe')" (Join-Path $PSScriptRoot 'src/LaunchPlan.cs') (Join-Path $PSScriptRoot 'tests/LaunchTests.cs')
@@ -22,5 +22,9 @@ if($Test){
     if($LASTEXITCODE -ne 0){throw 'Readiness test compilation failed.'}
     & (Join-Path $output 'CompanionStartupTests.exe')
     if($LASTEXITCODE -ne 0){throw 'Companion readiness tests failed.'}
+    & $compiler /nologo /target:exe /optimize+ /codepage:65001 /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "/out:$(Join-Path $output 'LaunchProgressTests.exe')" (Join-Path $PSScriptRoot 'src/LaunchProgress.cs') (Join-Path $PSScriptRoot 'tests/LaunchProgressTests.cs')
+    if($LASTEXITCODE -ne 0){throw 'Startup progress test compilation failed.'}
+    & (Join-Path $output 'LaunchProgressTests.exe') (Join-Path $output 'startup-preview.png')
+    if($LASTEXITCODE -ne 0){throw 'Startup progress tests failed.'}
 }
 [pscustomobject]@{Launcher=(Join-Path $output 'CodexDesktopKit.exe');SHA256=(Get-FileHash -LiteralPath (Join-Path $output 'CodexDesktopKit.exe')).Hash}
